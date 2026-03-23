@@ -2,15 +2,13 @@
 
 3D wind flow simulator for alpine terrain. Models how different wind directions move through mountains and predicts where snow accumulates — helping you find the best powder.
 
-![Alpine Wind Screenshot](screenshot-8ms.png)
-
 ## Features
 
 - **3D Terrain** — Real-world elevation data via CesiumJS (Lofoten, Lyngen Alps, Narvik)
 - **Wind Simulation** — Mass-conserving diagnostic wind model with terrain effects (ridge speed-up, lee-side shadows, valley channeling)
-- **Snow Accumulation** — Heuristic model predicting snow deposition based on wind speed, slope aspect, elevation, and temperature
-- **Particle Visualization** — Animated wind particles flowing through the terrain, color-coded by speed
-- **Interactive Controls** — Wind direction compass, speed slider (0-30 m/s), temperature (-20 to +5 C)
+- **Snow Accumulation** — Mass-conserving redistribution model with 30cm base snowfall. Wind scours windward faces and deposits on lee sides, preserving total snow mass.
+- **Windy-Style Animation** — 6000 GPU-accelerated particle trails flowing through terrain with bilinear interpolation, color-coded by speed (cyan to red)
+- **Interactive Controls** — Wind direction compass, speed slider (0-30 m/s), temperature (-20 to +5 C), auto-simulate on parameter change
 - **Powder Zone Detection** — Highlights prime powder spots (cold dry snow + skiable slopes + wind-loaded lee sides)
 
 ## Quick Start
@@ -29,7 +27,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Open http://localhost:5173, wait for terrain to load, then click **Run Simulation**.
+Open http://localhost:5173, wait for terrain to load. The simulation runs automatically when you change wind parameters.
 
 ## How It Works
 
@@ -37,19 +35,20 @@ Open http://localhost:5173, wait for terrain to load, then click **Run Simulatio
 A simplified diagnostic wind model (similar to WindNinja) that:
 1. Initializes a uniform wind field with logarithmic vertical profile
 2. Applies terrain interaction rules (windward deceleration, lee-side shadows, ridge speed-up)
-3. Iteratively enforces mass conservation (divergence-free flow)
+3. Iteratively enforces mass conservation using center-cell divergence absorption (Gauss-Seidel relaxation)
+4. Operates at 2 layers: 10m and 50m above ground level (surface-focused for snow prediction)
 
 ### Snow Model
-Five-factor heuristic scoring per terrain cell:
-- **Wind speed** (35%) — Low surface wind means snow stays in place
-- **Lee deposition** (30%) — Slopes sheltered from wind accumulate drifted snow
-- **Slope angle** (15%) — Steep slopes shed snow
-- **Elevation** (10%) — Mid-upper elevations accumulate best
-- **Temperature** (10%) — Cold = dry transportable snow, warm = sticky snow
+Mass-conserving redistribution of a 30cm base snowfall:
+- **Wind scouring** — High surface wind removes snow (up to 80% reduction)
+- **Lee-side deposition** — Slopes sheltered from wind accumulate drifted snow (up to 1.8x multiplier)
+- **Slope shedding** — Steep slopes (>35 degrees) lose snow
+- **Mass conservation** — Total snow is preserved during redistribution (normalized in a second pass)
+- **Powder zones** — Flagged where temperature is -10 to -5C, slope is 25-45 degrees, lee-facing, and not wind-scoured
 
 ### Visualization
-- **Wind particles** — 800 points advected through the 3D wind field at ~2.5x real-time
-- **Snow overlay** — Color-coded canvas texture draped on terrain (brown = scoured, white = moderate, blue = deep, cyan = powder zone)
+- **Wind particles** — 6000 particles with Windy.com-style flowing trails, bilinear wind and terrain height interpolation, trail fading via canvas compositing
+- **Snow overlay** — Color-coded canvas texture draped on terrain (brown = scoured, white = base depth, blue = deep accumulation, cyan = powder zone)
 
 ## Tech Stack
 

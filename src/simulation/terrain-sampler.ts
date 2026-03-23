@@ -6,7 +6,7 @@ import {
 import type { BoundingBox, ElevationGrid } from "../types/terrain.ts";
 import { gridDimensions, gridToLatLng } from "../utils/geo.ts";
 
-const DEFAULT_CELL_SIZE = 100; // meters
+const DEFAULT_CELL_SIZE = 75; // meters
 
 export async function sampleTerrain(
   terrainProvider: CesiumTerrainProvider,

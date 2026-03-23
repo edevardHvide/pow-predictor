@@ -1,30 +1,33 @@
-export function snowDepthColor(depth: number, isPowder: boolean): [number, number, number, number] {
+export function snowDepthColor(depthCm: number, isPowder: boolean, baseCm = 30): [number, number, number, number] {
   if (isPowder) {
     return [0, 230, 200, 255];
   }
 
-  // Brown (scoured) -> white (moderate) -> blue (deep snow)
-  if (depth < 0.3) {
-    const t = depth / 0.3;
+  // Normalize to 0-1 relative to base snowfall
+  const t = Math.min(depthCm / (baseCm * 2), 1); // 0 = bare, 1 = 2x base
+
+  // Brown (scoured/thin) → white (base) → blue (deep accumulation)
+  if (t < 0.3) {
+    const s = t / 0.3;
     return [
-      Math.round(120 + t * 50),
-      Math.round(90 + t * 50),
-      Math.round(60 + t * 60),
+      Math.round(120 + s * 50),
+      Math.round(90 + s * 50),
+      Math.round(60 + s * 60),
       255,
     ];
-  } else if (depth < 0.6) {
-    const t = (depth - 0.3) / 0.3;
+  } else if (t < 0.6) {
+    const s = (t - 0.3) / 0.3;
     return [
-      Math.round(170 + t * 85),
-      Math.round(140 + t * 115),
-      Math.round(120 + t * 135),
+      Math.round(170 + s * 85),
+      Math.round(140 + s * 115),
+      Math.round(120 + s * 135),
       255,
     ];
   } else {
-    const t = (depth - 0.6) / 0.4;
+    const s = (t - 0.6) / 0.4;
     return [
-      Math.round(255 - t * 100),
-      Math.round(255 - t * 30),
+      Math.round(255 - s * 100),
+      Math.round(255 - s * 30),
       255,
       255,
     ];

@@ -4,9 +4,8 @@ import ControlPanel from "./components/ControlPanel.tsx";
 import SnowLegend from "./components/SnowLegend.tsx";
 import { REGIONS } from "./simulation/regions.ts";
 import { useSimulation } from "./hooks/useSimulation.ts";
-import { useAnimationLoop } from "./hooks/useAnimationLoop.ts";
 import { renderSnowOverlay, removeSnowOverlay } from "./rendering/snow-overlay.ts";
-import { updateWindParticles, removeWindParticles } from "./rendering/wind-renderer.ts";
+import { WindCanvasLayer } from "./rendering/wind-layer-adapter.ts";
 import type { WindParams } from "./types/wind.ts";
 import type { Viewer } from "cesium";
 
@@ -22,7 +21,8 @@ export default function App() {
   const [terrainReady, setTerrainReady] = useState(false);
 
   const viewerRef = useRef<Viewer | null>(null);
-  const { state, setTerrain, runSimulation, advect, terrainRef } = useSimulation();
+  const windLayerRef = useRef<WindCanvasLayer | null>(null);
+  const { state, setTerrain, runSimulation, terrainRef } = useSimulation();
 
   const handleTerrainReady = useCallback(
     (grid: Parameters<typeof setTerrain>[0]) => {
@@ -32,23 +32,42 @@ export default function App() {
     [setTerrain],
   );
 
-  const handleSimulate = useCallback(() => {
-    runSimulation(params);
-  }, [runSimulation, params]);
+  // Auto-simulate when params change
+  const prevKey = useRef("");
+  useEffect(() => {
+    if (!terrainReady) return;
+    const key = `${params.direction}-${params.speed}-${params.temperature}`;
+    if (key === prevKey.current) return;
+    prevKey.current = key;
+    // Debounce rapid slider changes
+    const timer = setTimeout(() => runSimulation(params), 150);
+    return () => clearTimeout(timer);
+  }, [params.direction, params.speed, params.temperature, terrainReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Animation loop for wind particles
-  useAnimationLoop(
-    () => {
-      const viewer = viewerRef.current;
-      if (!viewer || !showWind) return;
-      const pool = advect();
-      if (pool) updateWindParticles(viewer, pool);
-    },
-    showWind && state.windField !== null,
-    30,
-  );
+  // Create/update wind layer when wind field changes
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    const terrain = terrainRef.current;
+    if (!viewer || !state.windField || !terrain) return;
 
-  // Render snow overlay when simulation completes
+    if (windLayerRef.current && !windLayerRef.current.isDestroyed()) {
+      windLayerRef.current.updateWindData(state.windField, terrain);
+    } else {
+      windLayerRef.current = new WindCanvasLayer(viewer, state.windField, terrain);
+    }
+    windLayerRef.current.show = showWind;
+  }, [state.windField]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup wind layer on unmount only
+  useEffect(() => {
+    return () => {
+      if (windLayerRef.current && !windLayerRef.current.isDestroyed()) {
+        windLayerRef.current.destroy();
+      }
+    };
+  }, []);
+
+  // Snow overlay
   useEffect(() => {
     const viewer = viewerRef.current;
     if (!viewer || !state.snowGrid) return;
@@ -58,7 +77,7 @@ export default function App() {
     return () => {
       if (viewer) removeSnowOverlay(viewer);
     };
-  }, [state.snowGrid, showSnow, region.bbox]);
+  }, [state.snowGrid, showSnow]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="relative w-full h-full">
@@ -79,12 +98,14 @@ export default function App() {
         showWind={showWind}
         onParamsChange={setParams}
         onRegionChange={setRegion}
-        onSimulate={handleSimulate}
+        onSimulate={() => runSimulation(params)}
         onToggleSnow={() => setShowSnow((s) => !s)}
         onToggleWind={() => {
           setShowWind((s) => {
             const next = !s;
-            if (!next && viewerRef.current) removeWindParticles(viewerRef.current);
+            if (windLayerRef.current && !windLayerRef.current.isDestroyed()) {
+              windLayerRef.current.show = next;
+            }
             return next;
           });
         }}
