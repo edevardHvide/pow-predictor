@@ -35,6 +35,8 @@ export default function CesiumViewer({ region, onTerrainReady, onViewerReady }: 
     sampleTerrain(terrainProvider, region.bbox).then((grid) => {
       console.log("Elevation grid ready:", grid);
       onTerrainReady?.(grid);
+    }).catch((err) => {
+      console.error("Terrain sampling failed:", err);
     });
   }, [ready, terrainProvider, region, onTerrainReady]);
 

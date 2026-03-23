@@ -3,7 +3,9 @@ import type { TerrainRegion } from "../types/terrain.ts";
 // ~25km bounding box centered on coordinates (matches preset region sizes)
 export function regionFromCoordinates(name: string, lat: number, lng: number): TerrainRegion {
   const latSpan = 0.2; // ~22km north-south
-  const lngSpan = 0.5 / Math.cos((lat * Math.PI) / 180); // ~25km adjusted for latitude
+  // At high latitudes, longitude degrees shrink. Cap the span to avoid enormous grids.
+  const cosLat = Math.max(Math.cos((lat * Math.PI) / 180), 0.3);
+  const lngSpan = Math.min(0.5 / cosLat, 0.6); // ~25km but capped at 0.6° max
   return {
     name,
     bbox: {
