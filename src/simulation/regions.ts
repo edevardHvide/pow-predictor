@@ -1,5 +1,23 @@
 import type { TerrainRegion } from "../types/terrain.ts";
 
+// ~10km bounding box centered on coordinates
+export function regionFromCoordinates(name: string, lat: number, lng: number): TerrainRegion {
+  const latSpan = 0.09; // ~10km north-south
+  const lngSpan = 0.25 / Math.cos((lat * Math.PI) / 180); // ~10km adjusted for latitude
+  return {
+    name,
+    bbox: {
+      west: lng - lngSpan / 2,
+      south: lat - latSpan / 2,
+      east: lng + lngSpan / 2,
+      north: lat + latSpan / 2,
+    },
+    cameraPosition: { lng, lat: lat - 0.04, height: 6000 },
+    cameraPitch: -25,
+    cameraHeading: 0,
+  };
+}
+
 export const REGIONS: TerrainRegion[] = [
   {
     name: "Lofoten",

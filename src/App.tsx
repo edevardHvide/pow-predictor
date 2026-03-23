@@ -2,7 +2,8 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import CesiumViewer from "./components/CesiumViewer.tsx";
 import ControlPanel from "./components/ControlPanel.tsx";
 import SnowLegend from "./components/SnowLegend.tsx";
-import { REGIONS } from "./simulation/regions.ts";
+import { REGIONS, regionFromCoordinates } from "./simulation/regions.ts";
+import type { MountainResult } from "./api/kartverket.ts";
 import { useSimulation } from "./hooks/useSimulation.ts";
 import { renderSnowOverlay, removeSnowOverlay } from "./rendering/snow-overlay.ts";
 import { WindCanvasLayer } from "./rendering/wind-layer-adapter.ts";
@@ -27,6 +28,7 @@ export default function App() {
   const handleTerrainReady = useCallback(
     (grid: Parameters<typeof setTerrain>[0]) => {
       setTerrain(grid);
+      prevKey.current = ""; // force re-simulation with new terrain
       setTerrainReady(true);
     },
     [setTerrain],
@@ -97,7 +99,11 @@ export default function App() {
         showSnow={showSnow}
         showWind={showWind}
         onParamsChange={setParams}
-        onRegionChange={setRegion}
+        onRegionChange={(r) => { setTerrainReady(false); setRegion(r); }}
+        onMountainSelect={(m: MountainResult) => {
+          setTerrainReady(false);
+          setRegion(regionFromCoordinates(m.name, m.lat, m.lng));
+        }}
         onSimulate={() => runSimulation(params)}
         onToggleSnow={() => setShowSnow((s) => !s)}
         onToggleWind={() => {

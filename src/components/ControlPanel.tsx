@@ -1,5 +1,7 @@
 import WindCompass from "./WindCompass.tsx";
 import RegionSelector from "./RegionSelector.tsx";
+import MountainSearch from "./MountainSearch.tsx";
+import type { MountainResult } from "../api/kartverket.ts";
 import type { WindParams } from "../types/wind.ts";
 import type { TerrainRegion } from "../types/terrain.ts";
 
@@ -12,6 +14,7 @@ interface ControlPanelProps {
   showWind: boolean;
   onParamsChange: (p: WindParams) => void;
   onRegionChange: (r: TerrainRegion) => void;
+  onMountainSelect: (m: MountainResult) => void;
   onSimulate: () => void;
   onToggleSnow: () => void;
   onToggleWind: () => void;
@@ -26,6 +29,7 @@ export default function ControlPanel({
   showWind,
   onParamsChange,
   onRegionChange,
+  onMountainSelect,
   onSimulate,
   onToggleSnow,
   onToggleWind,
@@ -33,6 +37,8 @@ export default function ControlPanel({
   return (
     <div className="absolute top-4 left-4 bg-gray-900/90 text-white rounded-xl p-4 w-64 backdrop-blur-sm shadow-2xl flex flex-col gap-3">
       <h1 className="text-lg font-bold tracking-tight">Alpine Wind</h1>
+
+      <MountainSearch onSelect={onMountainSelect} />
 
       <RegionSelector
         regions={regions}
