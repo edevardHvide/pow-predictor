@@ -25,6 +25,15 @@ export function computeSnowAccumulation(
     return { depth, isPowderZone, rows, cols };
   }
 
+  // No wind = uniform snowfall, no redistribution
+  if (params.speed < 0.5) {
+    for (let i = 0; i < rows * cols; i++) {
+      depth[i] = heights[i] >= 40 ? snowfallCm : 0;
+    }
+    console.log(`Snow model: ${snowfallCm}cm base, uniform (no wind)`);
+    return { depth, isPowderZone, rows, cols };
+  }
+
   // Wind direction: where wind blows TO (for lee-side calc)
   const windRadTo = ((params.direction + 180) % 360) * (Math.PI / 180);
 
@@ -92,6 +101,7 @@ export function computeSnowAccumulation(
       const surfaceSpeed = Math.sqrt(su * su + sv * sv);
 
       if (
+        params.speed >= 2 && // need wind to create powder loading
         params.temperature >= POWDER_TEMP_MIN &&
         params.temperature <= POWDER_TEMP_MAX &&
         slopeDeg >= SKIABLE_SLOPE_MIN &&
