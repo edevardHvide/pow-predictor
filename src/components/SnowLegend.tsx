@@ -1,6 +1,6 @@
 export default function SnowLegend() {
   return (
-    <div className="absolute bottom-4 left-4 bg-gray-900/90 text-white rounded-lg p-3 backdrop-blur-sm text-xs">
+    <div className="absolute bottom-4 left-4 z-10 bg-gray-900/90 text-white rounded-lg p-3 backdrop-blur-sm text-xs">
       <div className="font-semibold mb-2">Snow Depth (30cm base)</div>
       <div className="flex items-center gap-2">
         <div

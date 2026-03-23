@@ -35,7 +35,7 @@ export default function ControlPanel({
   onToggleWind,
 }: ControlPanelProps) {
   return (
-    <div className="absolute top-4 left-4 bg-gray-900/90 text-white rounded-xl p-4 w-64 backdrop-blur-sm shadow-2xl flex flex-col gap-3">
+    <div className="absolute top-4 left-4 z-10 bg-gray-900/90 text-white rounded-xl p-4 w-64 backdrop-blur-sm shadow-2xl flex flex-col gap-3">
       <h1 className="text-lg font-bold tracking-tight">Alpine Wind</h1>
 
       <MountainSearch onSelect={onMountainSelect} />
