@@ -13,7 +13,9 @@ export interface MountainResult {
 export async function searchMountains(query: string): Promise<MountainResult[]> {
   if (query.length < 2) return [];
 
-  const params = new URLSearchParams({ sok: query, treffPerSide: "10" });
+  // Append wildcard so partial names match (e.g. "Troll" → "Trolltinden")
+  const sok = query.endsWith("*") ? query : `${query}*`;
+  const params = new URLSearchParams({ sok, treffPerSide: "10" });
   for (const t of MOUNTAIN_TYPES) {
     params.append("navneobjekttype", t);
   }
