@@ -93,22 +93,10 @@ export default function App() {
 
       <ControlPanel
         params={params}
-        region={region}
-        regions={REGIONS}
         simulating={state.simulating}
         showSnow={showSnow}
         showWind={showWind}
         onParamsChange={setParams}
-        onRegionChange={(r) => {
-          setTerrainReady(false);
-          clearSimulation();
-          if (viewerRef.current) removeSnowOverlay(viewerRef.current);
-          if (windLayerRef.current && !windLayerRef.current.isDestroyed()) {
-            windLayerRef.current.destroy();
-            windLayerRef.current = null;
-          }
-          setRegion(r);
-        }}
         onMountainSelect={(m: MountainResult) => {
           setTerrainReady(false);
           clearSimulation();
