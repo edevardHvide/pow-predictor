@@ -8,4 +8,13 @@ export default defineConfig({
     jsx: "automatic",
     jsxImportSource: "react",
   },
+  server: {
+    proxy: {
+      "/api/nve": {
+        target: "https://gts.nve.no",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/nve/, "/api"),
+      },
+    },
+  },
 });
