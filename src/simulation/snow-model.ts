@@ -25,24 +25,17 @@ export function computeSnowAccumulation(
     return { depth, isPowderZone, rows, cols };
   }
 
-  // No wind = uniform snowfall, no redistribution
-  if (params.speed < 0.5) {
-    const isPowder = params.temperature >= POWDER_TEMP_MIN && params.temperature <= POWDER_TEMP_MAX;
-    for (let i = 0; i < rows * cols; i++) {
-      if (heights[i] >= 40) {
-        depth[i] = snowfallCm;
-        if (isPowder) isPowderZone[i] = 1;
-      }
-    }
-    console.log(`Snow model: ${snowfallCm}cm base, uniform (no wind), powder=${isPowder}`);
-    return { depth, isPowderZone, rows, cols };
-  }
-
   // Wind direction: where wind blows TO (for lee-side calc)
   const windRadTo = ((params.direction + 180) % 360) * (Math.PI / 180);
 
+  // Smooth ramp: how much wind affects redistribution (0 at calm, 1 at 2+ m/s)
+  const windStrength = smoothstep(0, 2, params.speed);
+
+  const inPowderTemp = params.temperature >= POWDER_TEMP_MIN && params.temperature <= POWDER_TEMP_MAX;
+
   // Pass 1: compute redistribution factor per cell
   // Factor > 1 = accumulation (lee sides), < 1 = scouring (windward/ridges)
+  // At 0 wind, all factors → 1.0 (uniform snow)
   const factors = new Float64Array(rows * cols);
   let factorSum = 0;
 
@@ -60,18 +53,17 @@ export function computeSnowAccumulation(
       const sv = wind.v[gi];
       const surfaceSpeed = Math.sqrt(su * su + sv * sv);
 
-      // Wind scouring: high wind removes snow
-      const scourFactor = 1 - clamp(surfaceSpeed / SCOUR_THRESHOLD_MS, 0, 0.8);
+      // Wind scouring: ramps in with windStrength (no scouring at 0 wind)
+      const scourFactor = 1 - clamp(surfaceSpeed / SCOUR_THRESHOLD_MS, 0, 0.8) * windStrength;
 
-      // Lee-side deposition: slope facing away from wind accumulates
-      // Only applies when there's meaningful wind to create lee/windward sides
+      // Lee-side deposition: naturally → 1 at 0 wind (surfaceSpeed=0 → windInfluence=0)
       const aspectDiff = Math.cos(aspects[gi] - windRadTo);
-      const windInfluence = clamp(surfaceSpeed / 2, 0, 1); // ramps from 0-2 m/s
+      const windInfluence = clamp(surfaceSpeed / 2, 0, 1);
       const leeFactor = 1 + clamp(aspectDiff, 0, 1) * 0.8 * windInfluence;
 
-      // Slope shedding: steep slopes lose snow
+      // Slope shedding: steep slopes lose snow (gravity, applies at all wind speeds)
       const slopeDeg = slopes[gi] * (180 / Math.PI);
-      const slopeFactor = 1 - smoothstep(35, 55, slopeDeg) * 0.7;
+      const slopeFactor = 1 - smoothstep(35, 55, slopeDeg) * 0.7 * windStrength;
 
       // Combined redistribution factor
       const factor = scourFactor * leeFactor * slopeFactor;
@@ -81,7 +73,6 @@ export function computeSnowAccumulation(
   }
 
   // Pass 2: normalize so total snow is conserved (mass conservation)
-  // Total snow = snowfallCm * number_of_land_cells
   let landCells = 0;
   for (let i = 0; i < factors.length; i++) {
     if (factors[i] > 0) landCells++;
@@ -95,30 +86,33 @@ export function computeSnowAccumulation(
       const gi = r * cols + c;
       if (factors[gi] === 0) continue;
 
-      depth[gi] = clamp(factors[gi] * scale, 0, snowfallCm * 3); // cap at 3x base
+      depth[gi] = clamp(factors[gi] * scale, 0, snowfallCm * 3);
 
-      // Powder zone detection
-      const slopeDeg = slopes[gi] * (180 / Math.PI);
-      const aspectDiff = Math.cos(aspects[gi] - windRadTo);
-      const su = wind.u[gi];
-      const sv = wind.v[gi];
-      const surfaceSpeed = Math.sqrt(su * su + sv * sv);
+      // Powder: fresh cold snow IS powder. Wind REMOVES it from exposed areas.
+      // At 0 wind: all skiable cells are powder. As wind increases, exposed
+      // areas lose powder while sheltered lee slopes retain it.
+      if (inPowderTemp) {
+        const slopeDeg = slopes[gi] * (180 / Math.PI);
+        const skiable = slopeDeg >= SKIABLE_SLOPE_MIN && slopeDeg <= SKIABLE_SLOPE_MAX;
+        if (skiable) {
+          const su = wind.u[gi];
+          const sv = wind.v[gi];
+          const surfaceSpeed = Math.sqrt(su * su + sv * sv);
+          const aspectDiff = Math.cos(aspects[gi] - windRadTo);
 
-      if (
-        params.speed >= 2 && // need wind to create powder loading
-        params.temperature >= POWDER_TEMP_MIN &&
-        params.temperature <= POWDER_TEMP_MAX &&
-        slopeDeg >= SKIABLE_SLOPE_MIN &&
-        slopeDeg <= SKIABLE_SLOPE_MAX &&
-        aspectDiff > 0.3 && // lee side
-        surfaceSpeed < SCOUR_THRESHOLD_MS // not scoured
-      ) {
-        isPowderZone[gi] = 1;
+          const exposure = clamp(surfaceSpeed / SCOUR_THRESHOLD_MS, 0, 1) * windStrength;
+          const sheltering = clamp(aspectDiff, 0, 1); // 1 = lee, 0 = windward
+          const powderSurvival = 1 - exposure * (1 - sheltering * 0.7);
+
+          if (powderSurvival > 0.5) {
+            isPowderZone[gi] = 1;
+          }
+        }
       }
     }
   }
 
-  console.log(`Snow model: ${snowfallCm}cm base, ${landCells} land cells, depth range: ${Math.min(...depth).toFixed(0)}-${Math.max(...depth).toFixed(0)}cm`);
+  console.log(`Snow model: ${snowfallCm}cm base, ${landCells} land cells, windStrength=${windStrength.toFixed(2)}, depth range: ${Math.min(...depth).toFixed(0)}-${Math.max(...depth).toFixed(0)}cm`);
 
   return { depth, isPowderZone, rows, cols };
 }
