@@ -24,6 +24,10 @@ export function useSimulation() {
     terrainRef.current = grid;
   }, []);
 
+  const clearSimulation = useCallback(() => {
+    setState({ windField: null, snowGrid: null, simulating: false });
+  }, []);
+
   const runSimulation = useCallback((params: WindParams) => {
     const terrain = terrainRef.current;
     if (!terrain) return;
@@ -41,5 +45,5 @@ export function useSimulation() {
     });
   }, []);
 
-  return { state, setTerrain, runSimulation, terrainRef };
+  return { state, setTerrain, runSimulation, clearSimulation, terrainRef };
 }

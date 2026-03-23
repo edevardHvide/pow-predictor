@@ -23,7 +23,7 @@ export default function App() {
 
   const viewerRef = useRef<Viewer | null>(null);
   const windLayerRef = useRef<WindCanvasLayer | null>(null);
-  const { state, setTerrain, runSimulation, terrainRef } = useSimulation();
+  const { state, setTerrain, runSimulation, clearSimulation, terrainRef } = useSimulation();
 
   const handleTerrainReady = useCallback(
     (grid: Parameters<typeof setTerrain>[0]) => {
@@ -99,9 +99,24 @@ export default function App() {
         showSnow={showSnow}
         showWind={showWind}
         onParamsChange={setParams}
-        onRegionChange={(r) => { setTerrainReady(false); setRegion(r); }}
+        onRegionChange={(r) => {
+          setTerrainReady(false);
+          clearSimulation();
+          if (viewerRef.current) removeSnowOverlay(viewerRef.current);
+          if (windLayerRef.current && !windLayerRef.current.isDestroyed()) {
+            windLayerRef.current.destroy();
+            windLayerRef.current = null;
+          }
+          setRegion(r);
+        }}
         onMountainSelect={(m: MountainResult) => {
           setTerrainReady(false);
+          clearSimulation();
+          if (viewerRef.current) removeSnowOverlay(viewerRef.current);
+          if (windLayerRef.current && !windLayerRef.current.isDestroyed()) {
+            windLayerRef.current.destroy();
+            windLayerRef.current = null;
+          }
           setRegion(regionFromCoordinates(m.name, m.lat, m.lng));
         }}
         onSimulate={() => runSimulation(params)}
