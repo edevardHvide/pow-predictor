@@ -5,7 +5,6 @@ import {
 } from "cesium";
 import type { BoundingBox, ElevationGrid } from "../types/terrain.ts";
 import { gridDimensions, gridToLatLng } from "../utils/geo.ts";
-import { computeDerivatives, precomputeSxSectors } from "./terrain-processing.ts";
 
 const DEFAULT_CELL_SIZE = 75; // meters
 
@@ -36,25 +35,27 @@ export async function sampleTerrain(
     }
   }
 
-  // Compute slope, aspect, normals from finite differences
-  const slopes = new Float64Array(rows * cols);
-  const aspects = new Float64Array(rows * cols);
-  const normalsX = new Float64Array(rows * cols);
-  const normalsY = new Float64Array(rows * cols);
-  const normalsZ = new Float64Array(rows * cols);
-
-  computeDerivatives(heights, rows, cols, cellSizeMeters, slopes, aspects, normalsX, normalsY, normalsZ);
-
-  // Precompute Sx for 8 azimuth sectors (every 45deg)
-  const sxSectors = precomputeSxSectors(heights, rows, cols, cellSizeMeters);
+  // Skip derivatives + Sx precomputation on main thread.
+  // The Web Worker recomputes these when it receives init-terrain.
+  // Main thread only needs heights for rendering (wind particles, snow overlay).
+  // Provide empty arrays so the type is satisfied for rendering code.
+  const n = rows * cols;
+  const empty = new Float64Array(n);
 
   console.log(
     `Terrain sampled: ${rows}x${cols} grid, cell=${cellSizeMeters}m, ` +
-    `height range: ${typedArrayMin(heights).toFixed(0)}-${typedArrayMax(heights).toFixed(0)}m, ` +
-    `Sx precomputed for 8 sectors`,
+    `height range: ${typedArrayMin(heights).toFixed(0)}-${typedArrayMax(heights).toFixed(0)}m`,
   );
 
-  return { heights, rows, cols, bbox, cellSizeMeters, slopes, aspects, normalsX, normalsY, normalsZ, sxSectors };
+  return {
+    heights, rows, cols, bbox, cellSizeMeters,
+    slopes: empty,
+    aspects: empty,
+    normalsX: empty,
+    normalsY: empty,
+    normalsZ: empty,
+    // No sxSectors — worker computes them
+  };
 }
 
 function typedArrayMin(arr: Float64Array): number {
@@ -68,5 +69,3 @@ function typedArrayMax(arr: Float64Array): number {
   for (let i = 0; i < arr.length; i++) if (arr[i] > max) max = arr[i];
   return max;
 }
-
-

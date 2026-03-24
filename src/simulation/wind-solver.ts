@@ -9,6 +9,45 @@ const RELAXATION_ALPHA = 0.1;
 const SURFACE_ROUGHNESS = 0.03;
 const REF_HEIGHT = 50;
 
+// Interpolate Sx between two nearest precomputed sectors, or compute from scratch
+function interpolateSx(
+  terrain: ElevationGrid,
+  baseU: number,
+  baseV: number,
+): Float64Array {
+  const { rows, cols, heights, cellSizeMeters } = terrain;
+  const n = rows * cols;
+  const windMag = Math.sqrt(baseU * baseU + baseV * baseV);
+  const sxGrid = new Float64Array(n);
+
+  if (windMag < 0.01) return sxGrid;
+
+  if (terrain.sxSectors && terrain.sxSectors.length === 8) {
+    const windDirRad = Math.atan2(baseU, baseV);
+    const sectorWidth = Math.PI / 4;
+    const normDir = ((windDirRad % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const sectorIdx = normDir / sectorWidth;
+    const s0 = Math.floor(sectorIdx) % 8;
+    const s1 = (s0 + 1) % 8;
+    const t = sectorIdx - Math.floor(sectorIdx);
+    const sx0 = terrain.sxSectors[s0];
+    const sx1 = terrain.sxSectors[s1];
+    for (let i = 0; i < n; i++) {
+      sxGrid[i] = sx0[i] * (1 - t) + sx1[i] * t;
+    }
+  } else {
+    const wdx = baseU / windMag;
+    const wdy = baseV / windMag;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        sxGrid[r * cols + c] = computeSx(heights, r, c, rows, cols, wdx, wdy, cellSizeMeters);
+      }
+    }
+  }
+
+  return sxGrid;
+}
+
 export function solveWindField(
   terrain: ElevationGrid,
   params: WindParams,
@@ -40,8 +79,11 @@ export function solveWindField(
     }
   }
 
-  // Apply terrain effects
-  applyTerrainEffects(u, v, w, terrain, baseU, baseV, layers);
+  // Compute Sx once — used for both terrain effects and snow model exposure
+  const exposure = interpolateSx(terrain, baseU, baseV);
+
+  // Apply terrain effects using precomputed Sx
+  applyTerrainEffects(u, v, w, terrain, baseU, baseV, layers, exposure);
 
   // Iterative mass-conservation
   let finalDiv = 0;
@@ -60,7 +102,6 @@ export function solveWindField(
     maxV = Math.max(maxV, Math.abs(v[i]));
   }
 
-  // Compute mean direction of surface layer to verify
   let sumU = 0, sumV = 0;
   for (let i = 0; i < rows * cols; i++) {
     sumU += u[i];
@@ -68,38 +109,6 @@ export function solveWindField(
   }
   const meanDir = (Math.atan2(-sumU, -sumV) * 180 / Math.PI + 360) % 360;
   console.log(`Wind solver: input=${params.direction}deg ${params.speed}m/s, output meanDir=${meanDir.toFixed(0)}deg, iters=${finalIter}, maxDiv=${finalDiv.toFixed(4)}, maxU=${maxU.toFixed(1)}, maxV=${maxV.toFixed(1)}`);
-
-  // Compute Sx grid for snow model — use precomputed sectors if available
-  const windMag = Math.sqrt(baseU * baseU + baseV * baseV);
-  const exposure = new Float64Array(rows * cols);
-  if (windMag > 0.01) {
-    if (terrain.sxSectors && terrain.sxSectors.length === 8) {
-      // Interpolate between nearest two precomputed sectors
-      const windDirRad = Math.atan2(baseU, baseV); // wind FROM direction
-      const sectorWidth = Math.PI / 4;
-      // Normalize to [0, 2*PI)
-      const normDir = ((windDirRad % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-      const sectorIdx = normDir / sectorWidth;
-      const s0 = Math.floor(sectorIdx) % 8;
-      const s1 = (s0 + 1) % 8;
-      const t = sectorIdx - Math.floor(sectorIdx);
-
-      const sx0 = terrain.sxSectors[s0];
-      const sx1 = terrain.sxSectors[s1];
-      for (let i = 0; i < rows * cols; i++) {
-        exposure[i] = sx0[i] * (1 - t) + sx1[i] * t;
-      }
-    } else {
-      // Fallback: compute from scratch
-      const wdx = baseU / windMag;
-      const wdy = baseV / windMag;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          exposure[r * cols + c] = computeSx(terrain.heights, r, c, rows, cols, wdx, wdy, terrain.cellSizeMeters);
-        }
-      }
-    }
-  }
 
   return { u, v, w, exposure, rows, cols, layers, layerHeights: LAYER_HEIGHTS };
 }
@@ -112,36 +121,14 @@ function applyTerrainEffects(
   baseU: number,
   baseV: number,
   layers: number,
+  sxGrid: Float64Array,
 ): void {
-  const { rows, cols, heights, slopes, normalsX, normalsY } = terrain;
+  const { rows, cols, slopes, normalsX, normalsY } = terrain;
   const windMag = Math.sqrt(baseU * baseU + baseV * baseV);
   if (windMag < 0.01) return;
 
   const wdx = baseU / windMag;
   const wdy = baseV / windMag;
-
-  // Precompute Sx grid for terrain effects (use sectors if available)
-  const sxGrid = new Float64Array(rows * cols);
-  if (terrain.sxSectors && terrain.sxSectors.length === 8) {
-    const windDirRad = Math.atan2(baseU, baseV);
-    const sectorWidth = Math.PI / 4;
-    const normDir = ((windDirRad % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-    const sectorIdx = normDir / sectorWidth;
-    const s0 = Math.floor(sectorIdx) % 8;
-    const s1 = (s0 + 1) % 8;
-    const t = sectorIdx - Math.floor(sectorIdx);
-    const sx0 = terrain.sxSectors[s0];
-    const sx1 = terrain.sxSectors[s1];
-    for (let i = 0; i < rows * cols; i++) {
-      sxGrid[i] = sx0[i] * (1 - t) + sx1[i] * t;
-    }
-  } else {
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        sxGrid[r * cols + c] = computeSx(heights, r, c, rows, cols, wdx, wdy, terrain.cellSizeMeters);
-      }
-    }
-  }
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {

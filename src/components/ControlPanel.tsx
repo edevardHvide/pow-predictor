@@ -33,9 +33,21 @@ export default function ControlPanel({
 }: ControlPanelProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Shared search state between mobile floating bar and desktop panel
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<MountainResult[]>([]);
+
   const handleMountainSelect = (m: MountainResult) => {
     onMountainSelect(m);
     setMobileOpen(false);
+  };
+
+  const searchProps = {
+    onSelect: handleMountainSelect,
+    query: searchQuery,
+    onQueryChange: setSearchQuery,
+    results: searchResults,
+    onResultsChange: setSearchResults,
   };
 
   return (
@@ -51,7 +63,7 @@ export default function ControlPanel({
             </svg>
           </div>
           <div className="flex-1">
-            <MountainSearch onSelect={handleMountainSelect} mobile />
+            <MountainSearch {...searchProps} mobile />
           </div>
         </div>
         {/* Settings button to open drawer */}
@@ -103,7 +115,7 @@ export default function ControlPanel({
 
         {/* Desktop search (hidden on mobile since it's in the floating bar) */}
         <div className="hidden md:block">
-          <MountainSearch onSelect={handleMountainSelect} />
+          <MountainSearch {...searchProps} />
         </div>
 
         {/* Mobile: label in drawer */}

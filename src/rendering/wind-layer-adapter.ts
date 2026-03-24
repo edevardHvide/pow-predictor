@@ -33,6 +33,10 @@ export class WindCanvasLayer {
   private _show = true;
   private _destroyed = false;
 
+  // Cached screen projections — refreshed only when camera moves
+  private screenCache: Float32Array | null = null; // [x0,y0, x1,y1, ...] for each grid cell
+  private cacheKey = "";
+
   constructor(viewer: Viewer, wind: WindField, terrain: ElevationGrid, particleCount = DEFAULT_PARTICLE_COUNT) {
     this.viewer = viewer;
     this.wind = wind;
@@ -55,7 +59,7 @@ export class WindCanvasLayer {
     this.animate();
 
     // Handle resize
-    const ro = new ResizeObserver(() => this.resize());
+    const ro = new ResizeObserver(() => { this.resize(); this.invalidateCache(); });
     ro.observe(container);
     (this as unknown as Record<string, unknown>)._ro = ro;
 
@@ -82,7 +86,13 @@ export class WindCanvasLayer {
   updateWindData(wind: WindField, terrain: ElevationGrid) {
     this.wind = wind;
     this.terrain = terrain;
+    this.invalidateCache();
     this.initParticles();
+  }
+
+  private invalidateCache() {
+    this.screenCache = null;
+    this.cacheKey = "";
   }
 
   private resize() {
@@ -110,7 +120,6 @@ export class WindCanvasLayer {
 
   private sampleWind(row: number, col: number): [number, number] {
     const { rows, cols } = this.wind;
-    // Bilinear interpolation for smooth flow
     const r0 = clamp(Math.floor(row), 0, rows - 2);
     const c0 = clamp(Math.floor(col), 0, cols - 2);
     const r1 = r0 + 1;
@@ -134,38 +143,92 @@ export class WindCanvasLayer {
     return [uVal, vVal];
   }
 
-  private gridToScreen(row: number, col: number): [number, number] | null {
-    const { bbox, rows, cols, heights } = this.terrain;
-    const lat = bbox.south + ((row + 0.5) / rows) * (bbox.north - bbox.south);
-    const lng = bbox.west + ((col + 0.5) / cols) * (bbox.east - bbox.west);
+  // Camera key for cache invalidation — changes when camera moves significantly
+  private getCameraKey(): string {
+    const cam = this.viewer.camera;
+    // Round to reduce unnecessary invalidation (small sub-pixel movements)
+    const px = Math.round(cam.positionWC.x / 10);
+    const py = Math.round(cam.positionWC.y / 10);
+    const pz = Math.round(cam.positionWC.z / 10);
+    const h = Math.round(cam.heading * 100);
+    const p = Math.round(cam.pitch * 100);
+    return `${px},${py},${pz},${h},${p}`;
+  }
 
-    // Bilinear height interpolation for smooth terrain following
+  // Build screen position cache for all grid vertices
+  private buildScreenCache() {
+    const { bbox, rows, cols, heights } = this.terrain;
+    const n = rows * cols;
+    const cache = new Float32Array(n * 2);
+    const scene = this.viewer.scene;
+    const scratch = new Cartesian2();
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const gi = r * cols + c;
+        const lat = bbox.south + ((r + 0.5) / rows) * (bbox.north - bbox.south);
+        const lng = bbox.west + ((c + 0.5) / cols) * (bbox.east - bbox.west);
+        const h = heights[gi] + 15;
+
+        const cartesian = Cartesian3.fromDegrees(lng, lat, h);
+        const screenPos = SceneTransforms.worldToWindowCoordinates(scene, cartesian, scratch);
+
+        const idx = gi * 2;
+        if (screenPos) {
+          cache[idx] = screenPos.x;
+          cache[idx + 1] = screenPos.y;
+        } else {
+          cache[idx] = -9999;
+          cache[idx + 1] = -9999;
+        }
+      }
+    }
+
+    this.screenCache = cache;
+    this.cacheKey = this.getCameraKey();
+  }
+
+  // Get screen position from cache with bilinear interpolation
+  private gridToScreen(row: number, col: number): [number, number] | null {
+    if (!this.screenCache) return null;
+
+    const { rows, cols } = this.terrain;
     const r0 = clamp(Math.floor(row), 0, rows - 2);
     const c0 = clamp(Math.floor(col), 0, cols - 2);
+    const r1 = r0 + 1;
+    const c1 = c0 + 1;
     const fr = row - r0;
     const fc = col - c0;
-    const h00 = heights[r0 * cols + c0];
-    const h01 = heights[r0 * cols + c0 + 1];
-    const h10 = heights[(r0 + 1) * cols + c0];
-    const h11 = heights[(r0 + 1) * cols + c0 + 1];
-    const h = h00 * (1 - fr) * (1 - fc) + h01 * (1 - fr) * fc +
-              h10 * fr * (1 - fc) + h11 * fr * fc + 15;
 
-    const cartesian = Cartesian3.fromDegrees(lng, lat, h);
-    const screenPos = SceneTransforms.worldToWindowCoordinates(
-      this.viewer.scene,
-      cartesian,
-      new Cartesian2(),
-    );
+    const cache = this.screenCache;
+    const i00 = (r0 * cols + c0) * 2;
+    const i01 = (r0 * cols + c1) * 2;
+    const i10 = (r1 * cols + c0) * 2;
+    const i11 = (r1 * cols + c1) * 2;
 
-    if (!screenPos) return null;
-    return [screenPos.x, screenPos.y];
+    // If any corner is offscreen, skip
+    if (cache[i00] < -9000 || cache[i01] < -9000 || cache[i10] < -9000 || cache[i11] < -9000) {
+      return null;
+    }
+
+    const x = cache[i00] * (1 - fr) * (1 - fc) + cache[i01] * (1 - fr) * fc +
+              cache[i10] * fr * (1 - fc) + cache[i11] * fr * fc;
+    const y = cache[i00 + 1] * (1 - fr) * (1 - fc) + cache[i01 + 1] * (1 - fr) * fc +
+              cache[i10 + 1] * fr * (1 - fc) + cache[i11 + 1] * fr * fc;
+
+    return [x, y];
   }
 
   private animate = () => {
     if (this._destroyed || !this._show) {
       this.rafId = null;
       return;
+    }
+
+    // Refresh cache if camera moved
+    const camKey = this.getCameraKey();
+    if (camKey !== this.cacheKey) {
+      this.buildScreenCache();
     }
 
     const ctx = this.ctx;

@@ -4,11 +4,30 @@ import { searchMountains, type MountainResult } from "../api/kartverket.ts";
 interface MountainSearchProps {
   onSelect: (result: MountainResult) => void;
   mobile?: boolean;
+  // Controlled mode: lift state to parent for syncing mobile/desktop
+  query?: string;
+  onQueryChange?: (q: string) => void;
+  results?: MountainResult[];
+  onResultsChange?: (r: MountainResult[]) => void;
 }
 
-export default function MountainSearch({ onSelect, mobile }: MountainSearchProps) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<MountainResult[]>([]);
+export default function MountainSearch({
+  onSelect,
+  mobile,
+  query: controlledQuery,
+  onQueryChange,
+  results: controlledResults,
+  onResultsChange,
+}: MountainSearchProps) {
+  // Use controlled or internal state
+  const [internalQuery, setInternalQuery] = useState("");
+  const [internalResults, setInternalResults] = useState<MountainResult[]>([]);
+
+  const query = controlledQuery ?? internalQuery;
+  const setQuery = onQueryChange ?? setInternalQuery;
+  const results = controlledResults ?? internalResults;
+  const setResults = onResultsChange ?? setInternalResults;
+
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -31,7 +50,7 @@ export default function MountainSearch({ onSelect, mobile }: MountainSearchProps
     }, 300);
 
     return () => clearTimeout(timerRef.current);
-  }, [query]);
+  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close dropdown on outside click
   useEffect(() => {
