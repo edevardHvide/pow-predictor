@@ -13,6 +13,7 @@ import {
 } from "cesium";
 import { useCesium } from "../hooks/useCesium.ts";
 import { sampleTerrain } from "../simulation/terrain-sampler.ts";
+import { isMobileDevice, MOBILE_CELL_SIZE, DESKTOP_CELL_SIZE } from "../utils/device.ts";
 import type { TerrainRegion } from "../types/terrain.ts";
 import type { ElevationGrid } from "../types/terrain.ts";
 
@@ -57,7 +58,8 @@ export default function CesiumViewer({
     if (!ready || !terrainProvider || sampledRegionRef.current === region.name) return;
     sampledRegionRef.current = region.name;
 
-    sampleTerrain(terrainProvider, region.bbox).then((grid) => {
+    const cellSize = isMobileDevice() ? MOBILE_CELL_SIZE : DESKTOP_CELL_SIZE;
+    sampleTerrain(terrainProvider, region.bbox, cellSize).then((grid) => {
       console.log("Elevation grid ready:", grid);
       onTerrainReady?.(grid);
     }).catch((err) => {
