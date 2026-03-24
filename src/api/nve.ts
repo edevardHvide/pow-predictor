@@ -155,7 +155,7 @@ export async function fetchWeatherTimeSeries(
 
 const GRID_SIZE = 3; // 3×3 = 9 sample stations across bbox
 
-/** Fetch all 4 themes for a single station. Returns null if station fails. */
+/** Fetch all 4 NVE themes for a single station. Returns null if station fails. */
 async function fetchStation(
   lat: number, lng: number, startStr: string, endStr: string,
 ): Promise<WeatherStation | null> {
@@ -183,9 +183,30 @@ async function fetchStation(
   }
 }
 
+/** Generate 3×3 grid sample points across bbox with 10% inset */
+function generateSamplePoints(
+  bboxWest: number, bboxSouth: number,
+  bboxEast: number, bboxNorth: number,
+): { lat: number; lng: number }[] {
+  const latPad = (bboxNorth - bboxSouth) * 0.1;
+  const lngPad = (bboxEast - bboxWest) * 0.1;
+  const points: { lat: number; lng: number }[] = [];
+
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const lat = (bboxSouth + latPad) + ((r + 0.5) / GRID_SIZE) * (bboxNorth - bboxSouth - 2 * latPad);
+      const lng = (bboxWest + lngPad) + ((c + 0.5) / GRID_SIZE) * (bboxEast - bboxWest - 2 * lngPad);
+      points.push({ lat, lng });
+    }
+  }
+
+  return points;
+}
+
 /**
- * Fetch weather from a grid of stations across the bounding box.
- * Falls back to center-only if fewer than 2 stations succeed.
+ * Fetch spatial weather: NVE for history, MET (yr.no) for forecast.
+ * MET provides accurate terrain-aware wind from the MEPS 2.5km model.
+ * Falls back to NVE-only if MET fails.
  */
 export async function fetchSpatialWeather(
   centerLat: number, centerLng: number,
@@ -195,77 +216,148 @@ export async function fetchSpatialWeather(
   onProgress?: (stage: string, progress: number) => void,
 ): Promise<SpatialWeatherTimeSeries> {
   const now = new Date();
-  const start = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
-  const end = new Date(now.getTime() + daysForward * 24 * 60 * 60 * 1000);
+  const histStart = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+  const histEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000); // NVE: history to tomorrow
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  const startStr = fmt(start);
-  const endStr = fmt(end);
 
-  // Generate grid sample points across bbox
-  // Inset by 10% to avoid edge effects (coastline at bbox edges)
-  const latPad = (bboxNorth - bboxSouth) * 0.1;
-  const lngPad = (bboxEast - bboxWest) * 0.1;
-  const samplePoints: { lat: number; lng: number }[] = [];
+  const samplePoints = generateSamplePoints(bboxWest, bboxSouth, bboxEast, bboxNorth);
+  console.log(`Spatial weather: fetching ${samplePoints.length} stations across bbox`);
 
-  for (let r = 0; r < GRID_SIZE; r++) {
-    for (let c = 0; c < GRID_SIZE; c++) {
-      const lat = (bboxSouth + latPad) + ((r + 0.5) / GRID_SIZE) * (bboxNorth - bboxSouth - 2 * latPad);
-      const lng = (bboxWest + lngPad) + ((c + 0.5) / GRID_SIZE) * (bboxEast - bboxWest - 2 * lngPad);
-      samplePoints.push({ lat, lng });
-    }
-  }
+  // ── Phase 1: NVE history ──
+  onProgress?.("Fetching NVE history...", 0);
+  let nveCompleted = 0;
 
-  console.log(`NVE spatial: fetching ${samplePoints.length} stations across bbox, ${startStr} to ${endStr}`);
-  onProgress?.("Fetching weather stations...", 0);
-
-  // Fetch all stations in parallel
-  let completed = 0;
-  const total = samplePoints.length;
-
-  const stationPromises = samplePoints.map(async (pt) => {
-    const station = await fetchStation(pt.lat, pt.lng, startStr, endStr);
-    completed++;
-    onProgress?.(`Fetching weather stations... (${completed}/${total})`, (completed / total) * 80);
+  const nvePromises = samplePoints.map(async (pt) => {
+    const station = await fetchStation(pt.lat, pt.lng, fmt(histStart), fmt(histEnd));
+    nveCompleted++;
+    onProgress?.(`Fetching NVE history... (${nveCompleted}/${samplePoints.length})`, (nveCompleted / samplePoints.length) * 40);
     return station;
   });
 
-  const results = await Promise.all(stationPromises);
-  const validStations = results.filter((s): s is WeatherStation => s !== null);
+  // ── Phase 2: MET forecast (in parallel with NVE) ──
+  const { fetchMetForecastGrid } = await import("./met.ts");
+  const metPromise = fetchMetForecastGrid(samplePoints, (stage, pct) => {
+    onProgress?.(stage, 40 + pct * 0.4);
+  });
 
-  console.log(`NVE spatial: ${validStations.length}/${samplePoints.length} stations valid`);
+  const [nveResults, metResult] = await Promise.all([
+    Promise.all(nvePromises),
+    metPromise,
+  ]);
 
-  // Fallback: if too few stations, fetch center point as single station
-  if (validStations.length < 2) {
-    console.log("NVE spatial: too few stations, falling back to center-only");
-    const centerStation = await fetchStation(centerLat, centerLng, startStr, endStr);
-    if (!centerStation) {
-      // Absolute fallback — use findValidUtm
+  const nveStations = nveResults.filter((s): s is WeatherStation => s !== null);
+  console.log(`NVE: ${nveStations.length}/${samplePoints.length} stations, MET: ${metResult.stations.length} stations`);
+
+  // Fallback: if NVE fails, try center-only
+  if (nveStations.length < 2) {
+    console.log("NVE: too few stations, falling back to center-only");
+    const centerStation = await fetchStation(centerLat, centerLng, fmt(histStart), fmt(histEnd));
+    if (centerStation) nveStations.push(centerStation);
+    if (nveStations.length === 0) {
       const single = await fetchWeatherTimeSeries(centerLat, centerLng, daysBack, daysForward, onProgress);
       return {
         timestamps: single.timestamps,
         stations: [{
-          lat: centerLat,
-          lng: centerLng,
-          altitude: single.altitude,
-          temp: single.temp,
-          precip: single.precip,
-          windSpeed: single.windSpeed,
-          windDir: single.windDir,
+          lat: centerLat, lng: centerLng, altitude: single.altitude,
+          temp: single.temp, precip: single.precip,
+          windSpeed: single.windSpeed, windDir: single.windDir,
         }],
       };
     }
-    validStations.push(centerStation);
   }
 
-  // Build timestamps from first station
-  const len = validStations[0].temp.length;
-  const timestamps: Date[] = [];
-  for (let i = 0; i < len; i++) {
-    timestamps.push(new Date(start.getTime() + i * 3 * 60 * 60 * 1000));
+  // ── Phase 3: Merge NVE history + MET forecast ──
+  onProgress?.("Merging history + forecast...", 85);
+
+  // Build NVE timestamps
+  const nveLen = nveStations[0].temp.length;
+  const nveTimestamps: Date[] = [];
+  for (let i = 0; i < nveLen; i++) {
+    nveTimestamps.push(new Date(histStart.getTime() + i * 3 * 60 * 60 * 1000));
+  }
+
+  // If MET failed, return NVE-only
+  if (metResult.stations.length === 0 || metResult.timestamps.length === 0) {
+    console.log("MET forecast unavailable, using NVE-only");
+    onProgress?.("Weather data loaded (NVE only)", 100);
+    return { timestamps: nveTimestamps, stations: nveStations };
+  }
+
+  // Find the splice point: first MET timestamp after "now"
+  const nowMs = now.getTime();
+  // Round now down to nearest 3h boundary for clean splice
+  const spliceMs = Math.floor(nowMs / (3 * 3600 * 1000)) * (3 * 3600 * 1000);
+
+  // NVE timestamps up to splice point
+  const nveKeep = nveTimestamps.filter(t => t.getTime() <= spliceMs);
+  const nveKeepLen = nveKeep.length;
+
+  // MET timestamps after splice point
+  const metStartIdx = metResult.timestamps.findIndex(t => t.getTime() > spliceMs);
+  if (metStartIdx < 0) {
+    // All MET data is in the past — use NVE only
+    console.log("MET data does not extend past now, using NVE-only");
+    onProgress?.("Weather data loaded (NVE only)", 100);
+    return { timestamps: nveTimestamps, stations: nveStations };
+  }
+
+  const metKeepTimestamps = metResult.timestamps.slice(metStartIdx);
+  const metKeepLen = metKeepTimestamps.length;
+
+  // Merged timestamps
+  const mergedTimestamps = [...nveKeep, ...metKeepTimestamps];
+
+  // Merge stations: match by closest point
+  const mergedStations: WeatherStation[] = [];
+
+  for (const nveSt of nveStations) {
+    // Find closest MET station to this NVE station
+    let bestMet: WeatherStation | null = null;
+    let bestDist = Infinity;
+    for (const metSt of metResult.stations) {
+      const dlat = nveSt.lat - metSt.lat;
+      const dlng = (nveSt.lng - metSt.lng) * Math.cos(nveSt.lat * Math.PI / 180);
+      const dist = dlat * dlat + dlng * dlng;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestMet = metSt;
+      }
+    }
+
+    if (!bestMet) continue;
+
+    // Use MET altitude (from MEPS model — more accurate for wind)
+    mergedStations.push({
+      lat: nveSt.lat,
+      lng: nveSt.lng,
+      altitude: bestMet.altitude, // MET altitude is terrain-aware
+      temp: [...nveSt.temp.slice(0, nveKeepLen), ...bestMet.temp.slice(metStartIdx, metStartIdx + metKeepLen)],
+      precip: [...nveSt.precip.slice(0, nveKeepLen), ...bestMet.precip.slice(metStartIdx, metStartIdx + metKeepLen)],
+      windSpeed: [...nveSt.windSpeed.slice(0, nveKeepLen), ...bestMet.windSpeed.slice(metStartIdx, metStartIdx + metKeepLen)],
+      windDir: [...nveSt.windDir.slice(0, nveKeepLen), ...bestMet.windDir.slice(metStartIdx, metStartIdx + metKeepLen)],
+    });
+  }
+
+  // Verify all stations have same length
+  const expectedLen = mergedTimestamps.length;
+  for (const s of mergedStations) {
+    if (s.temp.length < expectedLen) {
+      // Pad with last known value
+      const pad = (arr: number[]) => {
+        while (arr.length < expectedLen) arr.push(arr[arr.length - 1] ?? 0);
+      };
+      pad(s.temp); pad(s.precip); pad(s.windSpeed); pad(s.windDir);
+    } else if (s.temp.length > expectedLen) {
+      s.temp = s.temp.slice(0, expectedLen);
+      s.precip = s.precip.slice(0, expectedLen);
+      s.windSpeed = s.windSpeed.slice(0, expectedLen);
+      s.windDir = s.windDir.slice(0, expectedLen);
+    }
   }
 
   onProgress?.("Weather data loaded", 100);
-  console.log(`NVE spatial: ${len} timesteps, ${validStations.length} stations`);
+  console.log(`Merged: ${nveKeepLen} NVE history + ${metKeepLen} MET forecast = ${mergedTimestamps.length} timesteps, ${mergedStations.length} stations`);
+  console.log(`Splice at: ${new Date(spliceMs).toISOString()}`);
 
-  return { timestamps, stations: validStations };
+  return { timestamps: mergedTimestamps, stations: mergedStations };
 }

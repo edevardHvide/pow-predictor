@@ -121,11 +121,12 @@ export class SnowOverlayManager {
     terrain: ElevationGrid,
     mode: "manual" | "historical",
   ): HTMLCanvasElement {
-    const canvas = document.createElement("canvas");
-    canvas.width = snow.cols;
-    canvas.height = snow.rows;
-    const ctx = canvas.getContext("2d")!;
-    const imageData = ctx.createImageData(snow.cols, snow.rows);
+    // 1. Paint at grid resolution (1 pixel per cell)
+    const raw = document.createElement("canvas");
+    raw.width = snow.cols;
+    raw.height = snow.rows;
+    const rawCtx = raw.getContext("2d")!;
+    const imageData = rawCtx.createImageData(snow.cols, snow.rows);
 
     for (let r = 0; r < snow.rows; r++) {
       const canvasRow = snow.rows - 1 - r;
@@ -149,7 +150,18 @@ export class SnowOverlayManager {
       }
     }
 
-    ctx.putImageData(imageData, 0, 0);
+    rawCtx.putImageData(imageData, 0, 0);
+
+    // 2. Upscale with bilinear interpolation for smooth gradients
+    const scale = 4;
+    const canvas = document.createElement("canvas");
+    canvas.width = snow.cols * scale;
+    canvas.height = snow.rows * scale;
+    const ctx = canvas.getContext("2d")!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(raw, 0, 0, canvas.width, canvas.height);
+
     return canvas;
   }
 

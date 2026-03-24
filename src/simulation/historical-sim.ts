@@ -206,6 +206,27 @@ function stationMean(
   return sum / stations.length;
 }
 
+/**
+ * Altitude-corrected wind speed for the solver.
+ * Uses highest-altitude station wind as base, since ridges/peaks see
+ * free-atmosphere wind. The solver adds sheltering via Sx.
+ * If multiple high stations exist, average them to smooth outliers.
+ */
+function stationWindForSolver(
+  stations: WeatherStation[],
+  t: number,
+): number {
+  if (stations.length <= 1) return stations[0]?.windSpeed[t] ?? 0;
+
+  // Sort stations by altitude descending, take top 1/3 (at least 1)
+  const sorted = [...stations].sort((a, b) => b.altitude - a.altitude);
+  const topCount = Math.max(1, Math.floor(stations.length / 3));
+  let sum = 0;
+  for (let i = 0; i < topCount; i++) sum += sorted[i].windSpeed[t];
+  return sum / topCount;
+}
+
+
 /** Domain-average wind direction (circular mean) */
 function stationMeanWindDir(stations: WeatherStation[], t: number): number {
   let sinSum = 0, cosSum = 0;
@@ -234,7 +255,8 @@ export async function runHistoricalSimulation(
   console.log(`Historical sim: ${stations.length} weather stations, IDW weights computed`);
 
   // Pre-solve wind fields at original 3h data points
-  // Wind: use domain-average direction/speed (terrain effects dominate spatial variation)
+  // Wind: use highest-altitude stations for solver input (represents free-atmosphere wind)
+  // The solver adds terrain sheltering/exposure via Winstral Sx
   console.log(`Historical sim: pre-solving wind fields for ${len} data points...`);
   const windFields: WindField[] = [];
   let lastSolvedDir = -999;
@@ -243,7 +265,7 @@ export async function runHistoricalSimulation(
 
   for (let t = 0; t < len; t++) {
     const dir = stationMeanWindDir(stations, t);
-    const spd = stationMean(stations, "windSpeed", t);
+    const spd = stationWindForSolver(stations, t);
 
     if (
       !lastWindField ||

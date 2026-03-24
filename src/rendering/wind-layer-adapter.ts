@@ -8,11 +8,12 @@ import type { WindField } from "../types/wind.ts";
 import type { ElevationGrid } from "../types/terrain.ts";
 import { clamp } from "../utils/math.ts";
 
-const DEFAULT_PARTICLE_COUNT = 6000;
-const TRAIL_FADE = 0.95;
+const DEFAULT_PARTICLE_COUNT = 10000;
+const TRAIL_FADE = 0.92;
 const SPEED_SCALE = 0.005;
-const MAX_AGE = 180;
-const LINE_WIDTH = 2.0;
+const MAX_AGE = 120;
+const LINE_WIDTH = 1.4;
+const TURBULENCE = 0.15;
 
 interface WindParticle {
   row: number;
@@ -256,9 +257,9 @@ export class WindCanvasLayer {
       // Get screen position before moving
       const from = this.gridToScreen(p.row, p.col);
 
-      // Advect
-      p.col += u * SPEED_SCALE;
-      p.row += v * SPEED_SCALE;
+      // Advect with slight turbulence (snow doesn't travel in perfect lines)
+      p.col += u * SPEED_SCALE + (Math.random() - 0.5) * TURBULENCE * SPEED_SCALE;
+      p.row += v * SPEED_SCALE + (Math.random() - 0.5) * TURBULENCE * SPEED_SCALE;
 
       // Get screen position after moving
       const to = this.gridToScreen(p.row, p.col);
@@ -266,18 +267,18 @@ export class WindCanvasLayer {
       if (!from || !to) continue;
       if (from[0] < -50 || from[0] > w + 50 || from[1] < -50 || from[1] > h + 50) continue;
 
-      // Bright visible colors: cyan at low speed → yellow → red at high
+      // Snow-like colors: white with slight blue tint, brighter at higher speed
       const t = clamp(speed / 15, 0, 1);
-      const r = Math.round(80 + t * 175);
-      const g = Math.round(220 + t * 35 - t * t * 180);
-      const b = Math.round(255 - t * 200);
-      const alpha = 0.6 + t * 0.35;
+      const r = Math.round(220 + t * 35);
+      const g = Math.round(225 + t * 30);
+      const b = 255;
+      const alpha = 0.3 + t * 0.5;
 
       ctx.beginPath();
       ctx.moveTo(from[0], from[1]);
       ctx.lineTo(to[0], to[1]);
       ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
-      ctx.lineWidth = LINE_WIDTH + speed * 0.15;
+      ctx.lineWidth = LINE_WIDTH + speed * 0.1;
       ctx.stroke();
     }
 

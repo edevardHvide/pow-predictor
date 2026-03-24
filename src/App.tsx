@@ -416,8 +416,7 @@ export default function App() {
         windSpeed = wWindSpeed / totalW;
         windDir = ((Math.atan2(sinSum / totalW, cosSum / totalW) * 180 / Math.PI) + 360) % 360;
 
-        // Lapse rate correction: adjust temp for elevation difference
-        // between terrain cell and IDW-weighted station altitude
+        // Lapse rate + wind altitude correction using IDW-weighted station altitude
         let refAlt = 0;
         for (const s of stations) {
           const dlat2 = lat - s.lat;
@@ -427,6 +426,13 @@ export default function App() {
           refAlt += s.altitude * (w2 / totalW);
         }
         temp += (elevation - refAlt) * (-6.5 / 1000);
+
+        // Mild wind speed altitude correction for sub-grid terrain variation
+        const dElev = elevation - refAlt;
+        if (dElev > 0) {
+          const ratio = (10 + dElev) / 10;
+          windSpeed *= Math.pow(ratio, 0.12); // gentle — MET already has terrain-aware wind
+        }
       }
     }
 
