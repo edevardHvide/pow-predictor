@@ -8,7 +8,7 @@ import type { WindField } from "../types/wind.ts";
 import type { ElevationGrid } from "../types/terrain.ts";
 import { clamp } from "../utils/math.ts";
 
-const PARTICLE_COUNT = 6000;
+const DEFAULT_PARTICLE_COUNT = 6000;
 const TRAIL_FADE = 0.95;
 const SPEED_SCALE = 0.005;
 const MAX_AGE = 180;
@@ -28,14 +28,16 @@ export class WindCanvasLayer {
   private wind: WindField;
   private terrain: ElevationGrid;
   private viewer: Viewer;
+  private particleCount: number;
   private rafId: number | null = null;
   private _show = true;
   private _destroyed = false;
 
-  constructor(viewer: Viewer, wind: WindField, terrain: ElevationGrid) {
+  constructor(viewer: Viewer, wind: WindField, terrain: ElevationGrid, particleCount = DEFAULT_PARTICLE_COUNT) {
     this.viewer = viewer;
     this.wind = wind;
     this.terrain = terrain;
+    this.particleCount = particleCount;
 
     // Create canvas overlay
     this.canvas = document.createElement("canvas");
@@ -57,7 +59,7 @@ export class WindCanvasLayer {
     ro.observe(container);
     (this as unknown as Record<string, unknown>)._ro = ro;
 
-    console.log(`WindCanvasLayer: ${PARTICLE_COUNT} particles, ${this.wind.rows}x${this.wind.cols} grid`);
+    console.log(`WindCanvasLayer: ${this.particleCount} particles, ${this.wind.rows}x${this.wind.cols} grid`);
   }
 
   get show() { return this._show; }
@@ -92,7 +94,7 @@ export class WindCanvasLayer {
 
   private initParticles() {
     this.particles = [];
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    for (let i = 0; i < this.particleCount; i++) {
       this.particles.push(this.spawnParticle());
     }
   }

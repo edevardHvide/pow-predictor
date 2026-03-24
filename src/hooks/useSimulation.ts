@@ -1,9 +1,9 @@
-import { useState, useCallback, useRef } from "react";
+// src/hooks/useSimulation.ts
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { ElevationGrid } from "../types/terrain.ts";
 import type { WindField, WindParams } from "../types/wind.ts";
 import type { SnowDepthGrid } from "../types/snow.ts";
-import { solveWindField } from "../simulation/wind-solver.ts";
-import { computeSnowAccumulation } from "../simulation/snow-model.ts";
+import type { WorkerResponse } from "../simulation/worker-protocol.ts";
 
 export interface SimulationState {
   windField: WindField | null;
@@ -19,9 +19,69 @@ export function useSimulation() {
   });
 
   const terrainRef = useRef<ElevationGrid | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  const terrainSentRef = useRef(false);
 
+  // Create worker on mount
+  useEffect(() => {
+    const worker = new Worker(
+      new URL("../simulation/simulation.worker.ts", import.meta.url),
+      { type: "module" },
+    );
+
+    worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+      const msg = e.data;
+      if (msg.type === "simulation-result") {
+        setState({
+          windField: {
+            u: msg.windU,
+            v: msg.windV,
+            w: msg.windW,
+            exposure: msg.exposure,
+            rows: msg.rows,
+            cols: msg.cols,
+            layers: msg.layers,
+            layerHeights: msg.layerHeights,
+          },
+          snowGrid: {
+            depth: msg.snowDepth,
+            isPowderZone: msg.isPowderZone,
+            rows: msg.rows,
+            cols: msg.cols,
+          },
+          simulating: false,
+        });
+      } else if (msg.type === "terrain-ready") {
+        terrainSentRef.current = true;
+      } else if (msg.type === "error") {
+        console.error("Simulation worker error:", msg.message);
+        setState((s) => ({ ...s, simulating: false }));
+      }
+      // historical-progress, historical-result are handled by useHistoricalSim's
+      // addEventListener — they fall through here harmlessly
+    };
+
+    workerRef.current = worker;
+    return () => worker.terminate();
+  }, []);
+
+  // Send terrain heights to worker (structured clone, not transfer — main thread
+  // still needs heights for rendering: wind particles, snow overlay)
   const setTerrain = useCallback((grid: ElevationGrid) => {
     terrainRef.current = grid;
+    terrainSentRef.current = false;
+
+    const worker = workerRef.current;
+    if (!worker) return;
+
+    worker.postMessage({
+      type: "init-terrain",
+      heights: grid.heights,
+      rows: grid.rows,
+      cols: grid.cols,
+      bbox: grid.bbox,
+      cellSizeMeters: grid.cellSizeMeters,
+    });
   }, []);
 
   const clearSimulation = useCallback(() => {
@@ -29,21 +89,12 @@ export function useSimulation() {
   }, []);
 
   const runSimulation = useCallback((params: WindParams) => {
-    const terrain = terrainRef.current;
-    if (!terrain) return;
+    const worker = workerRef.current;
+    if (!worker || !terrainSentRef.current) return;
 
     setState((s) => ({ ...s, simulating: true }));
-
-    requestAnimationFrame(() => {
-      const t0 = performance.now();
-      const windField = solveWindField(terrain, params);
-      const snowGrid = computeSnowAccumulation(terrain, windField, params);
-
-      console.log(`Simulation completed in ${(performance.now() - t0).toFixed(0)}ms`);
-
-      setState({ windField, snowGrid, simulating: false });
-    });
+    worker.postMessage({ type: "run-simulation", params });
   }, []);
 
-  return { state, setTerrain, runSimulation, clearSimulation, terrainRef };
+  return { state, setTerrain, runSimulation, clearSimulation, terrainRef, workerRef };
 }
