@@ -81,7 +81,7 @@ export default function ControlPanel({
         disabled={historicalLoading || historicalMode || selectionMode}
         className="bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 text-white text-sm font-medium py-2.5 rounded-lg shadow-lg shadow-emerald-900/30 transition-all"
       >
-        {historicalLoading ? "Loading weather data..." : historicalMode ? "Simulation Mode ON" : selectionMode ? "Select a point..." : "Simulation Mode (12 days)"}
+        {historicalLoading ? "Loading weather data..." : historicalMode ? "Simulation Active" : selectionMode ? "Select a point..." : "Run Pow Simulation"}
       </button>
 
       <div className="flex gap-2 text-xs">
