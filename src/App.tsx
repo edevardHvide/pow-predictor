@@ -5,6 +5,7 @@ import SnowLegend from "./components/SnowLegend.tsx";
 import SnowDepthTooltip from "./components/SnowDepthTooltip.tsx";
 import MapCompass from "./components/MapCompass.tsx";
 import TimelineBar from "./components/TimelineBar.tsx";
+import WelcomePage from "./components/WelcomePage.tsx";
 import { REGIONS, regionFromCoordinates } from "./simulation/regions.ts";
 import type { MountainResult } from "./api/kartverket.ts";
 import { fetchWeatherTimeSeries, type WeatherTimeSeries } from "./api/nve.ts";
@@ -277,6 +278,7 @@ export default function App() {
 
   return (
     <div className="relative w-full h-full">
+      <WelcomePage />
       <CesiumViewer
         region={region}
         selectionMode={selectionMode}
