@@ -15,7 +15,6 @@ export default function SnowDepthTooltip({
   screenY,
   onClose,
 }: SnowDepthTooltipProps) {
-  // Position tooltip near click, offset slightly so it doesn't cover the point
   const style = {
     left: `${screenX + 16}px`,
     top: `${screenY - 40}px`,
@@ -23,25 +22,26 @@ export default function SnowDepthTooltip({
 
   return (
     <div
-      className="absolute z-30 bg-gray-900/95 text-white rounded-lg px-4 py-3 backdrop-blur-sm shadow-xl pointer-events-auto"
+      className="absolute z-30 glass-panel text-white px-4 py-3 pointer-events-auto border-l-[3px] border-l-sky-400"
       style={style}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-start gap-3">
         <div>
-          <p className="text-lg font-bold text-blue-300">
+          <p className="text-xl font-semibold text-sky-300 tabular-nums">
             {depthCm.toFixed(1)} cm
           </p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-slate-400 font-light mt-0.5">
             Predicted snow depth
           </p>
-          <p className="text-xs text-gray-500 mt-1">
+          <div className="h-px bg-slate-700/50 my-1.5" />
+          <p className="text-[11px] text-slate-500 font-light tabular-nums">
             {lat.toFixed(4)}°N, {lng.toFixed(4)}°E
           </p>
         </div>
         <button
           onClick={onClose}
-          className="text-gray-500 hover:text-white text-sm ml-2"
+          className="w-6 h-6 flex items-center justify-center rounded-full text-slate-500 hover:text-white hover:bg-slate-700/60 text-xs transition-all"
         >
           ✕
         </button>

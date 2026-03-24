@@ -40,32 +40,36 @@ export default function TimelineBar({ steps, currentStep, onStepChange, onExit }
     d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-10 bg-gray-900/95 backdrop-blur-sm border-t border-gray-700 px-4 py-3">
-      <div className="flex items-center gap-4 max-w-4xl mx-auto">
+    <div className="absolute bottom-0 left-0 right-0 z-10 glass-bar px-5 py-3.5">
+      <div className="flex items-center gap-4 max-w-5xl mx-auto">
         {/* Playback controls */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => onStepChange(Math.max(0, currentStep - 1))}
-            className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded"
+            className="w-8 h-8 flex items-center justify-center text-xs bg-slate-700/60 hover:bg-slate-600/70 text-slate-300 rounded-full"
           >
             ◀
           </button>
           <button
             onClick={() => setPlaying(!playing)}
-            className={`px-3 py-1 text-sm font-semibold rounded ${playing ? "bg-orange-600" : "bg-blue-600 hover:bg-blue-500"}`}
+            className={`w-9 h-9 flex items-center justify-center text-sm font-semibold rounded-full shadow-lg ${
+              playing
+                ? "bg-amber-500/90 text-slate-900 shadow-amber-900/30"
+                : "bg-sky-500/90 hover:bg-sky-400/90 text-white shadow-sky-900/30"
+            }`}
           >
             {playing ? "⏸" : "▶"}
           </button>
           <button
             onClick={() => onStepChange(Math.min(steps.length - 1, currentStep + 1))}
-            className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded"
+            className="w-8 h-8 flex items-center justify-center text-xs bg-slate-700/60 hover:bg-slate-600/70 text-slate-300 rounded-full"
           >
             ▶
           </button>
           <select
             value={speed}
             onChange={(e) => setSpeed(Number(e.target.value))}
-            className="bg-gray-700 text-xs rounded px-1 py-1 ml-1"
+            className="bg-slate-700/50 text-xs text-slate-300 rounded-full px-2 py-1.5 ml-1 border border-slate-600/30 outline-none"
           >
             <option value={0.5}>0.5x</option>
             <option value={1}>1x</option>
@@ -83,24 +87,30 @@ export default function TimelineBar({ steps, currentStep, onStepChange, onExit }
           max={steps.length - 1}
           value={currentStep}
           onChange={(e) => { setPlaying(false); onStepChange(Number(e.target.value)); }}
-          className="flex-1 accent-blue-500"
+          className="flex-1"
         />
 
         {/* Current info */}
-        <div className="flex items-center gap-3 text-xs text-gray-300 whitespace-nowrap">
-          <span className="font-semibold text-white">
+        <div className="flex items-center gap-2.5 text-xs whitespace-nowrap">
+          <span className="font-medium text-slate-100 tabular-nums">
             {fmtDate(step.timestamp)} {fmtTime(step.timestamp)}
           </span>
           {isForecast && (
-            <span className="text-amber-400 font-semibold">Forecast</span>
+            <span className="text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full text-[10px] font-medium">
+              Forecast
+            </span>
           )}
-          <span className={step.temp <= 0 ? "text-cyan-400" : "text-orange-400"}>
+          <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium tabular-nums ${
+            step.temp <= 0
+              ? "text-sky-300 bg-sky-500/10 border border-sky-500/15"
+              : "text-amber-300 bg-amber-500/10 border border-amber-500/15"
+          }`}>
             {step.temp.toFixed(1)}°C
           </span>
-          <span className="text-blue-400">
+          <span className="text-blue-300 bg-blue-500/10 border border-blue-500/15 px-2 py-0.5 rounded-full text-[11px] font-medium tabular-nums">
             {step.precip.toFixed(1)}mm
           </span>
-          <span className="text-gray-400">
+          <span className="text-slate-400 tabular-nums text-[11px]">
             {step.windSpeed.toFixed(0)}m/s {Math.round(step.windDir)}°
           </span>
         </div>
@@ -108,7 +118,7 @@ export default function TimelineBar({ steps, currentStep, onStepChange, onExit }
         {/* Exit button */}
         <button
           onClick={onExit}
-          className="px-2 py-1 text-xs bg-red-700 hover:bg-red-600 rounded"
+          className="px-3 py-1.5 text-xs font-medium bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/20 rounded-full transition-all"
         >
           Exit
         </button>

@@ -31,43 +31,55 @@ export default function ControlPanel({
   onHistoricalMode,
 }: ControlPanelProps) {
   return (
-    <div className="absolute top-4 left-4 z-10 bg-gray-900/90 text-white rounded-xl p-4 w-64 backdrop-blur-sm shadow-2xl flex flex-col gap-3">
-      <h1 className="text-lg font-bold tracking-tight">Pow Predictor</h1>
+    <div className="absolute top-4 left-4 z-10 glass-panel text-white p-5 w-[272px] flex flex-col gap-4">
+      <h1
+        className="text-2xl font-semibold tracking-wide text-sky-100"
+        style={{ fontFamily: "var(--font-display)" }}
+      >
+        Pow Predictor
+      </h1>
+
+      <div className="h-px bg-gradient-to-r from-slate-600/60 via-slate-500/30 to-transparent" />
 
       <MountainSearch onSelect={onMountainSelect} />
 
       {!historicalMode && (
         <>
+          <div className="h-px bg-gradient-to-r from-slate-600/40 to-transparent" />
+
           <WindCompass
             direction={params.direction}
             onChange={(d) => onParamsChange({ ...params, direction: d })}
           />
 
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-gray-400">Wind Speed: {params.speed} m/s</span>
+          <label className="flex flex-col gap-1.5">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs text-slate-400 font-light">Wind Speed</span>
+              <span className="text-sm font-medium text-sky-300 tabular-nums">{params.speed} m/s</span>
+            </div>
             <input
               type="range"
               min="0"
               max="30"
               value={params.speed}
               onChange={(e) => onParamsChange({ ...params, speed: Number(e.target.value) })}
-              className="accent-blue-500"
             />
           </label>
-
         </>
       )}
 
       {historicalMode && (
-        <div className="text-xs text-cyan-400 bg-cyan-900/30 rounded-lg p-2 text-center">
-          Simulation Mode Active — use timeline below
+        <div className="text-xs text-sky-300 bg-sky-950/40 border border-sky-800/30 rounded-lg p-2.5 text-center font-light">
+          Simulation Active — use timeline below
         </div>
       )}
+
+      <div className="h-px bg-gradient-to-r from-slate-600/40 to-transparent" />
 
       <button
         onClick={onHistoricalMode}
         disabled={historicalLoading || historicalMode || selectionMode}
-        className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-600 text-white text-sm font-semibold py-2 rounded-lg transition-colors"
+        className="bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 text-white text-sm font-medium py-2.5 rounded-lg shadow-lg shadow-emerald-900/30 transition-all"
       >
         {historicalLoading ? "Loading weather data..." : historicalMode ? "Simulation Mode ON" : selectionMode ? "Select a point..." : "Simulation Mode (12 days)"}
       </button>
@@ -75,13 +87,13 @@ export default function ControlPanel({
       <div className="flex gap-2 text-xs">
         <button
           onClick={onToggleWind}
-          className={`flex-1 py-1 rounded ${showWind ? "bg-blue-600" : "bg-gray-700"}`}
+          className={`flex-1 py-1.5 rounded-full font-medium transition-all ${showWind ? "bg-sky-600/80 text-white shadow-md shadow-sky-900/30" : "bg-slate-700/60 text-slate-400 hover:bg-slate-700/80"}`}
         >
           Wind {showWind ? "ON" : "OFF"}
         </button>
         <button
           onClick={onToggleSnow}
-          className={`flex-1 py-1 rounded ${showSnow ? "bg-cyan-600" : "bg-gray-700"}`}
+          className={`flex-1 py-1.5 rounded-full font-medium transition-all ${showSnow ? "bg-sky-600/80 text-white shadow-md shadow-sky-900/30" : "bg-slate-700/60 text-slate-400 hover:bg-slate-700/80"}`}
         >
           Snow {showSnow ? "ON" : "OFF"}
         </button>

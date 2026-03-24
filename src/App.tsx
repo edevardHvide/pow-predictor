@@ -329,11 +329,11 @@ export default function App() {
 
       {/* Selection mode banner */}
       {selectionMode && !showConfirmDialog && !loadingProgress && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-emerald-800/90 text-white rounded-lg px-5 py-3 backdrop-blur-sm shadow-xl flex items-center gap-4">
-          <span className="text-sm">Click on the map or search a mountain to select a point</span>
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 glass-panel text-white px-5 py-3 flex items-center gap-4 border-l-[3px] border-l-sky-400">
+          <span className="text-sm font-light">Click on the map or search a mountain to select a point</span>
           <button
             onClick={() => { setSelectionMode(false); setSelectedPoint(null); }}
-            className="text-xs bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded"
+            className="text-xs bg-slate-600/50 hover:bg-slate-500/60 text-slate-300 px-3 py-1.5 rounded-full transition-all"
           >
             Cancel
           </button>
@@ -342,21 +342,21 @@ export default function App() {
 
       {/* Confirm dialog */}
       {showConfirmDialog && selectedPoint && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-          <div className="bg-gray-900 rounded-xl p-6 text-white shadow-2xl max-w-sm">
-            <p className="text-sm mb-1">Simulate historical weather at:</p>
-            <p className="font-semibold text-emerald-400 mb-4">{selectedPoint.name}</p>
-            <p className="text-xs text-gray-400 mb-4">Fetches 7 days of history + 5 days of forecast from NVE and runs a time-stepped snow simulation.</p>
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/50 backdrop-blur-[2px]" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+          <div className="glass-panel p-6 text-white max-w-sm">
+            <p className="text-sm text-slate-300 font-light mb-1">Simulate historical weather at:</p>
+            <p className="font-semibold text-emerald-400 mb-4 text-lg" style={{ fontFamily: "var(--font-display)" }}>{selectedPoint.name}</p>
+            <p className="text-xs text-slate-400 font-light mb-5">Fetches 7 days of history + 5 days of forecast from NVE and runs a time-stepped snow simulation.</p>
             <div className="flex gap-3">
               <button
                 onClick={handleConfirmSelection}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-500 font-semibold py-2 rounded-lg transition-colors"
+                className="flex-1 bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 font-medium py-2.5 rounded-lg shadow-lg shadow-emerald-900/30 transition-all"
               >
                 Confirm
               </button>
               <button
                 onClick={handleCancelSelection}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 font-semibold py-2 rounded-lg transition-colors"
+                className="flex-1 bg-slate-700/60 hover:bg-slate-600/70 font-medium py-2.5 rounded-lg border border-slate-600/30 transition-all"
               >
                 Cancel
               </button>
@@ -367,16 +367,16 @@ export default function App() {
 
       {/* Loading progress */}
       {loadingProgress && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
-          <div className="bg-gray-900 rounded-xl p-6 text-white shadow-2xl w-80">
-            <p className="text-sm mb-3">{loadingProgress.stage}</p>
-            <div className="w-full bg-gray-700 rounded-full h-2">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/50 backdrop-blur-[2px]">
+          <div className="glass-panel p-6 text-white w-80">
+            <p className="text-sm font-light text-slate-200 mb-3">{loadingProgress.stage}</p>
+            <div className="w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
               <div
-                className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+                className="h-full rounded-full transition-all duration-300 bg-gradient-to-r from-sky-500 to-sky-400"
                 style={{ width: `${loadingProgress.percent}%` }}
               />
             </div>
-            <p className="text-xs text-gray-400 mt-2">{Math.round(loadingProgress.percent)}%</p>
+            <p className="text-xs text-slate-400 font-light mt-2 tabular-nums">{Math.round(loadingProgress.percent)}%</p>
           </div>
         </div>
       )}

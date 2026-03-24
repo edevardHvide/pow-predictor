@@ -37,18 +37,18 @@ export default function MapCompass({ viewer }: MapCompassProps) {
     <button
       onClick={resetNorth}
       title="Click to reset to north"
-      className="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-gray-900/80 backdrop-blur-sm shadow-xl border border-gray-600/50 flex items-center justify-center cursor-pointer hover:bg-gray-800/90 transition-colors"
+      className="absolute top-4 right-4 z-10 w-14 h-14 rounded-full glass-panel flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-transform"
     >
       <svg
-        width="32"
-        height="32"
+        width="36"
+        height="36"
         viewBox="0 0 32 32"
-        style={{ transform: `rotate(${-heading}deg)` }}
+        style={{ transform: `rotate(${-heading}deg)`, transition: "transform 0.1s ease-out" }}
       >
         {/* North arrow (red) */}
-        <polygon points="16,3 20,16 16,13 12,16" fill="#ef4444" />
-        {/* South arrow (white) */}
-        <polygon points="16,29 12,16 16,19 20,16" fill="#9ca3af" />
+        <polygon points="16,3 20,16 16,13 12,16" fill="#f87171" />
+        {/* South arrow */}
+        <polygon points="16,29 12,16 16,19 20,16" fill="#64748b" />
         {/* N label */}
         <text
           x="16"
@@ -56,7 +56,8 @@ export default function MapCompass({ viewer }: MapCompassProps) {
           textAnchor="middle"
           fontSize="6"
           fontWeight="bold"
-          fill="#ef4444"
+          fill="#f87171"
+          style={{ fontFamily: "var(--font-body)" }}
         >
           N
         </text>
