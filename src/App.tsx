@@ -8,8 +8,8 @@ import TimelineBar from "./components/TimelineBar.tsx";
 import { REGIONS, regionFromCoordinates } from "./simulation/regions.ts";
 import type { MountainResult } from "./api/kartverket.ts";
 import { fetchWeatherTimeSeries, type WeatherTimeSeries } from "./api/nve.ts";
-import { runHistoricalSimulation, type HistoricalStep } from "./simulation/historical-sim.ts";
 import { useSimulation } from "./hooks/useSimulation.ts";
+import { useHistoricalSim } from "./hooks/useHistoricalSim.ts";
 import { renderSnowOverlay, removeSnowOverlay } from "./rendering/snow-overlay.ts";
 import { WindCanvasLayer } from "./rendering/wind-layer-adapter.ts";
 import type { WindParams } from "./types/wind.ts";
@@ -28,9 +28,6 @@ export default function App() {
 
   // Historical mode state
   const [historicalMode, setHistoricalMode] = useState(false);
-  const [historicalSteps, setHistoricalSteps] = useState<HistoricalStep[] | null>(null);
-  const [historicalStep, setHistoricalStep] = useState(0);
-  const [historicalLoading, setHistoricalLoading] = useState(false);
 
   // Point selection flow
   const [selectionMode, setSelectionMode] = useState(false);
@@ -45,7 +42,11 @@ export default function App() {
   const viewerRef = useRef<Viewer | null>(null);
   const windLayerRef = useRef<WindCanvasLayer | null>(null);
   const prefetchRef = useRef<Promise<WeatherTimeSeries> | null>(null);
-  const { state, setTerrain, runSimulation, clearSimulation, terrainRef } = useSimulation();
+  const { state, setTerrain, runSimulation, clearSimulation, terrainRef, workerRef } = useSimulation();
+  const historicalSim = useHistoricalSim(workerRef);
+
+  // Derive displayed progress: prefetch phase OR worker computation phase
+  const displayProgress = historicalSim.progress ?? loadingProgress;
 
   const handleTerrainReady = useCallback(
     (grid: Parameters<typeof setTerrain>[0]) => {
@@ -115,8 +116,8 @@ export default function App() {
 
   // Historical mode: render current step
   useEffect(() => {
-    if (!historicalMode || !historicalSteps) return;
-    const step = historicalSteps[historicalStep];
+    if (!historicalMode || !historicalSim.steps) return;
+    const step = historicalSim.steps[historicalSim.currentStep];
     if (!step) return;
 
     const viewer = viewerRef.current;
@@ -135,7 +136,7 @@ export default function App() {
       windLayerRef.current = new WindCanvasLayer(viewer, step.windField, terrain);
     }
     windLayerRef.current.show = showWind;
-  }, [historicalStep, historicalSteps, historicalMode, showSnow, showWind]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [historicalSim.currentStep, historicalSim.steps, historicalMode, showSnow, showWind]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Enter selection mode for historical simulation
   const enterHistoricalMode = useCallback(() => {
@@ -174,17 +175,15 @@ export default function App() {
 
   // Confirm selected point and run historical simulation
   const handleConfirmSelection = useCallback(async () => {
-    const terrain = terrainRef.current;
-    if (!terrain || !prefetchRef.current) return;
+    if (!prefetchRef.current) return;
 
     confirmDialogRef.current = false;
     setShowConfirmDialog(false);
     setSelectionMode(false);
-    setHistoricalLoading(true);
     clearOverlays();
     clearSimulation();
 
-    // Reveal progress — jump to wherever the silent prefetch already got
+    // Reveal prefetch progress — jump to wherever the silent prefetch already got
     showProgressRef.current = true;
     setLoadingProgress({ ...prefetchProgressRef.current });
 
@@ -192,22 +191,15 @@ export default function App() {
       // Await the already-in-flight prefetch
       const weather = await prefetchRef.current;
       prefetchRef.current = null;
-      setLoadingProgress({ stage: "Computing simulation...", percent: 0 });
-      const steps = await runHistoricalSimulation(terrain, weather,
-        (stage, percent) => setLoadingProgress({ stage, percent }),
-      );
-
-      setHistoricalSteps(steps);
-      setHistoricalStep(0);
+      setLoadingProgress(null); // Clear prefetch progress — worker will show its own
+      historicalSim.run(weather);
       setHistoricalMode(true);
       setSelectedPoint(null);
     } catch (err) {
       console.error("Historical sim failed:", err);
-    } finally {
-      setHistoricalLoading(false);
       setLoadingProgress(null);
     }
-  }, [clearOverlays, clearSimulation, terrainRef]);
+  }, [clearOverlays, clearSimulation, historicalSim]);
 
   // Cancel selection (discard in-flight prefetch)
   const handleCancelSelection = useCallback(() => {
@@ -222,8 +214,7 @@ export default function App() {
   // Exit historical mode
   const exitHistoricalMode = useCallback(() => {
     setHistoricalMode(false);
-    setHistoricalSteps(null);
-    setHistoricalStep(0);
+    historicalSim.reset();
     setSelectionMode(false);
     setSelectedPoint(null);
     confirmDialogRef.current = false;
@@ -231,15 +222,15 @@ export default function App() {
     clearOverlays();
     // Re-trigger manual simulation
     prevKey.current = "";
-  }, [clearOverlays]);
+  }, [clearOverlays, historicalSim]);
 
   // Handle snow depth probe click in simulation mode
   const handleProbeClick = useCallback((lat: number, lng: number, screenX: number, screenY: number) => {
-    if (!historicalMode || !historicalSteps) return;
+    if (!historicalMode || !historicalSim.steps) return;
     const terrain = terrainRef.current;
     if (!terrain) return;
 
-    const step = historicalSteps[historicalStep];
+    const step = historicalSim.steps[historicalSim.currentStep];
     if (!step) return;
 
     // Convert lat/lng to grid row/col
@@ -256,24 +247,24 @@ export default function App() {
     const depthCm = step.snowGrid.depth[gi];
 
     setDepthProbe({ lat, lng, depthCm, screenX, screenY });
-  }, [historicalMode, historicalSteps, historicalStep, terrainRef]);
+  }, [historicalMode, historicalSim.steps, historicalSim.currentStep, terrainRef]);
 
   // Clear probe when step changes
   useEffect(() => {
     setDepthProbe(null);
-  }, [historicalStep]);
+  }, [historicalSim.currentStep]);
 
   // Handle timeline step change
   const handleStepChange = useCallback((step: number) => {
-    setHistoricalStep((prev) => {
-      if (step === -1) {
-        // Advance by 1 (from play)
+    if (step === -1) {
+      historicalSim.setCurrentStep((prev) => {
         const next = prev + 1;
-        return next >= (historicalSteps?.length ?? 0) ? 0 : next;
-      }
-      return step;
-    });
-  }, [historicalSteps]);
+        return next >= (historicalSim.steps?.length ?? 0) ? 0 : next;
+      });
+    } else {
+      historicalSim.setCurrentStep(step);
+    }
+  }, [historicalSim]);
 
   return (
     <div className="relative w-full h-full">
@@ -298,7 +289,7 @@ export default function App() {
         showSnow={showSnow}
         showWind={showWind}
         historicalMode={historicalMode}
-        historicalLoading={historicalLoading}
+        historicalLoading={historicalSim.loading}
         selectionMode={selectionMode}
         onParamsChange={setParams}
         onMountainSelect={(m: MountainResult) => {
@@ -328,7 +319,7 @@ export default function App() {
       />
 
       {/* Selection mode banner */}
-      {selectionMode && !showConfirmDialog && !loadingProgress && (
+      {selectionMode && !showConfirmDialog && !displayProgress && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 glass-panel text-white px-5 py-3 flex items-center gap-4 border-l-[3px] border-l-sky-400">
           <span className="text-sm font-light">Click on the map or search a mountain to select a point</span>
           <button
@@ -366,25 +357,25 @@ export default function App() {
       )}
 
       {/* Loading progress */}
-      {loadingProgress && (
+      {displayProgress && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/50 backdrop-blur-[2px]">
           <div className="glass-panel p-6 text-white w-80">
-            <p className="text-sm font-light text-slate-200 mb-3">{loadingProgress.stage}</p>
+            <p className="text-sm font-light text-slate-200 mb-3">{displayProgress.stage}</p>
             <div className="w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-300 bg-gradient-to-r from-sky-500 to-sky-400"
-                style={{ width: `${loadingProgress.percent}%` }}
+                style={{ width: `${displayProgress.percent}%` }}
               />
             </div>
-            <p className="text-xs text-slate-400 font-light mt-2 tabular-nums">{Math.round(loadingProgress.percent)}%</p>
+            <p className="text-xs text-slate-400 font-light mt-2 tabular-nums">{Math.round(displayProgress.percent)}%</p>
           </div>
         </div>
       )}
 
-      {historicalMode && historicalSteps && (
+      {historicalMode && historicalSim.steps && (
         <TimelineBar
-          steps={historicalSteps}
-          currentStep={historicalStep}
+          steps={historicalSim.steps}
+          currentStep={historicalSim.currentStep}
           onStepChange={handleStepChange}
           onExit={exitHistoricalMode}
         />
