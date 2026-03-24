@@ -9,6 +9,11 @@ import {
   Cartesian3,
   Color,
   Entity,
+  VerticalOrigin,
+  HorizontalOrigin,
+  HeightReference,
+  LabelStyle,
+  Cartesian2,
   type Viewer,
 } from "cesium";
 import { useCesium } from "../hooks/useCesium.ts";
@@ -25,6 +30,7 @@ interface CesiumViewerProps {
   selectionMode?: boolean;
   historicalMode?: boolean;
   selectedPoint?: { lat: number; lng: number; name?: string } | null;
+  searchedMountain?: { lat: number; lng: number; name: string } | null;
   onMapClick?: (lat: number, lng: number) => void;
   onProbeClick?: (lat: number, lng: number, screenX: number, screenY: number) => void;
   onTerrainReady?: (grid: ElevationGrid) => void;
@@ -36,6 +42,7 @@ export default function CesiumViewer({
   selectionMode,
   historicalMode,
   selectedPoint,
+  searchedMountain,
   onMapClick,
   onProbeClick,
   onTerrainReady,
@@ -45,6 +52,7 @@ export default function CesiumViewer({
   const { viewer, terrainProvider, ready } = useCesium(containerRef, region);
   const sampledRegionRef = useRef<string>("");
   const markerRef = useRef<Entity | null>(null);
+  const mountainMarkerRef = useRef<Entity | null>(null);
 
   // Expose viewer instance
   useEffect(() => {
@@ -128,6 +136,69 @@ export default function CesiumViewer({
       }
     };
   }, [selectedPoint, viewer]);
+
+  // Mountain arrow marker with name label
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v) return;
+
+    if (mountainMarkerRef.current) {
+      v.entities.remove(mountainMarkerRef.current);
+      mountainMarkerRef.current = null;
+    }
+
+    if (searchedMountain) {
+      // Minimal pin marker — teardrop shape with inner dot
+      const pinSvg = [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="52" viewBox="0 0 36 52">`,
+        `<defs>`,
+        `<filter id="s" x="-20%25" y="-10%25" width="140%25" height="130%25">`,
+        `<feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="%23000" flood-opacity="0.4"/>`,
+        `</filter>`,
+        `<linearGradient id="g" x1="0" y1="0" x2="0" y2="1">`,
+        `<stop offset="0%25" stop-color="%23f87171"/>`,
+        `<stop offset="100%25" stop-color="%23dc2626"/>`,
+        `</linearGradient>`,
+        `</defs>`,
+        `<path d="M18 2C10.3 2 4 8.3 4 16c0 10 14 32 14 32s14-22 14-32C32 8.3 25.7 2 18 2z" fill="url(%23g)" stroke="%23991b1b" stroke-width="1" filter="url(%23s)"/>`,
+        `<circle cx="18" cy="16" r="5.5" fill="white" opacity="0.95"/>`,
+        `</svg>`,
+      ].join("");
+      const pinUri = `data:image/svg+xml,${pinSvg}`;
+
+      mountainMarkerRef.current = v.entities.add({
+        position: Cartesian3.fromDegrees(searchedMountain.lng, searchedMountain.lat),
+        billboard: {
+          image: pinUri,
+          width: 28,
+          height: 40,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          horizontalOrigin: HorizontalOrigin.CENTER,
+          heightReference: HeightReference.CLAMP_TO_GROUND,
+          pixelOffset: new Cartesian2(0, 2),
+        },
+        label: {
+          text: searchedMountain.name,
+          font: "600 13px Outfit, sans-serif",
+          fillColor: Color.WHITE,
+          outlineColor: new Color(0.06, 0.09, 0.16, 0.9),
+          outlineWidth: 4,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          horizontalOrigin: HorizontalOrigin.CENTER,
+          pixelOffset: new Cartesian2(0, -44),
+          heightReference: HeightReference.CLAMP_TO_GROUND,
+        },
+      });
+    }
+
+    return () => {
+      if (mountainMarkerRef.current && v.entities.contains(mountainMarkerRef.current)) {
+        v.entities.remove(mountainMarkerRef.current);
+        mountainMarkerRef.current = null;
+      }
+    };
+  }, [searchedMountain, viewer]);
 
   // Click handler for snow depth probe in historical mode
   useEffect(() => {

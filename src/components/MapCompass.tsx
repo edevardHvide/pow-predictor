@@ -37,11 +37,12 @@ export default function MapCompass({ viewer }: MapCompassProps) {
     <button
       onClick={resetNorth}
       title="Click to reset to north"
-      className="absolute top-4 right-4 z-10 w-14 h-14 rounded-full glass-panel flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+      className="absolute top-3 right-3 md:top-4 md:right-4 z-10 w-11 h-11 md:w-14 md:h-14 rounded-full glass-panel flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-transform"
     >
       <svg
-        width="36"
-        height="36"
+        width="28"
+        height="28"
+        className="md:w-9 md:h-9"
         viewBox="0 0 32 32"
         style={{ transform: `rotate(${-heading}deg)`, transition: "transform 0.1s ease-out" }}
       >

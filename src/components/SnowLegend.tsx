@@ -6,7 +6,7 @@ export default function SnowLegend({ mode }: SnowLegendProps) {
   const isHistorical = mode === "historical";
 
   return (
-    <div className="absolute bottom-4 left-4 z-10 glass-panel text-white px-4 py-3 text-xs">
+    <div className="absolute bottom-20 md:bottom-10 left-2 md:left-4 z-10 glass-panel text-white px-3 md:px-4 py-2.5 md:py-3 text-xs">
       <div className="font-medium text-slate-200 mb-2.5">
         {isHistorical ? "Snow Accumulation" : "Wind Redistribution"}
       </div>

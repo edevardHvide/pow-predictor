@@ -60,7 +60,7 @@ export default function WelcomePage() {
           transition: "transform 0.7s cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
-        <div className="glass-panel p-8 md:p-10 text-white">
+        <div className="glass-panel p-5 sm:p-8 md:p-10 text-white max-h-[90vh] overflow-y-auto">
           {/* Header */}
           <div className="flex items-start gap-4 mb-6">
             <div
@@ -78,7 +78,7 @@ export default function WelcomePage() {
             </div>
             <div>
               <h1
-                className="text-3xl font-semibold tracking-wide text-sky-50 leading-tight"
+                className="text-2xl sm:text-3xl font-semibold tracking-wide text-sky-50 leading-tight"
                 style={{ fontFamily: "var(--font-display)" }}
               >
                 Pow Predictor
@@ -92,14 +92,14 @@ export default function WelcomePage() {
           <div className="h-px bg-gradient-to-r from-sky-500/30 via-slate-500/20 to-transparent mb-6" />
 
           {/* Description */}
-          <p className="text-[15px] text-slate-300 font-light leading-relaxed mb-6">
+          <p className="text-sm sm:text-[15px] text-slate-300 font-light leading-relaxed mb-4 sm:mb-6">
             Predict where powder accumulates after storms. This simulator models how
             wind transports snow through mountain terrain — scouring exposed ridges
             and depositing on sheltered lee slopes — using real physics and weather data.
           </p>
 
           {/* How to use — two modes */}
-          <div className="space-y-4 mb-8">
+          <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
             <h2
               className="text-xs font-medium tracking-[0.15em] uppercase text-slate-500"
             >
@@ -158,7 +158,7 @@ export default function WelcomePage() {
           </div>
 
           {/* Tips */}
-          <div className="flex flex-wrap gap-x-5 gap-y-1.5 mb-8 text-[11px] text-slate-500 font-light">
+          <div className="flex flex-wrap gap-x-5 gap-y-1.5 mb-6 sm:mb-8 text-[11px] text-slate-500 font-light">
             <span className="flex items-center gap-1.5">
               <span className="w-1 h-1 rounded-full bg-sky-500/50 inline-block" />
               Search any Norwegian mountain

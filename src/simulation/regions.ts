@@ -14,8 +14,8 @@ export function regionFromCoordinates(name: string, lat: number, lng: number): T
       east: lng + lngSpan / 2,
       north: lat + latSpan / 2,
     },
-    cameraPosition: { lng, lat: lat - 0.12, height: 4500 },
-    cameraPitch: -18,
+    cameraPosition: { lng, lat: lat - 0.06, height: 2800 },
+    cameraPitch: -28,
     cameraHeading: 0,
   };
 }

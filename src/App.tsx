@@ -4,6 +4,7 @@ import ControlPanel from "./components/ControlPanel.tsx";
 import SnowLegend from "./components/SnowLegend.tsx";
 import SnowDepthTooltip from "./components/SnowDepthTooltip.tsx";
 import MapCompass from "./components/MapCompass.tsx";
+import ScaleBar from "./components/ScaleBar.tsx";
 import TimelineBar from "./components/TimelineBar.tsx";
 import WelcomePage from "./components/WelcomePage.tsx";
 import { REGIONS, regionFromCoordinates } from "./simulation/regions.ts";
@@ -38,6 +39,9 @@ export default function App() {
   const [selectedPoint, setSelectedPoint] = useState<{ lat: number; lng: number; name?: string } | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState<{ stage: string; percent: number } | null>(null);
+
+  // Last searched mountain (used as default simulation point)
+  const [searchedMountain, setSearchedMountain] = useState<{ lat: number; lng: number; name: string } | null>(null);
 
   // Snow depth probe (click in simulation mode)
   const [depthProbe, setDepthProbe] = useState<{ lat: number; lng: number; depthCm: number; screenX: number; screenY: number } | null>(null);
@@ -138,13 +142,6 @@ export default function App() {
     windLayerRef.current.show = showWind;
   }, [historicalStep, historicalSteps, historicalMode, showSnow, showWind]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Enter selection mode for historical simulation
-  const enterHistoricalMode = useCallback(() => {
-    setSelectionMode(true);
-    setSelectedPoint(null);
-    setShowConfirmDialog(false);
-  }, []);
-
   // Start prefetching weather data silently (called when a point is picked)
   const prefetchProgressRef = useRef<{ stage: string; percent: number }>({ stage: "", percent: 0 });
   const showProgressRef = useRef(false);
@@ -162,6 +159,21 @@ export default function App() {
       },
     );
   }, []);
+
+  // Enter selection mode for historical simulation
+  // If user already searched a mountain, skip selection and go straight to confirm
+  const enterHistoricalMode = useCallback(() => {
+    if (searchedMountain) {
+      setSelectedPoint(searchedMountain);
+      setShowConfirmDialog(true);
+      confirmDialogRef.current = true;
+      startPrefetch(searchedMountain.lat, searchedMountain.lng);
+    } else {
+      setSelectionMode(true);
+      setSelectedPoint(null);
+      setShowConfirmDialog(false);
+    }
+  }, [searchedMountain, startPrefetch]);
 
   // Handle map click during selection mode
   const confirmDialogRef = useRef(false);
@@ -284,6 +296,7 @@ export default function App() {
         selectionMode={selectionMode}
         historicalMode={historicalMode}
         selectedPoint={selectedPoint}
+        searchedMountain={searchedMountain}
         onMapClick={handleMapClick}
         onProbeClick={handleProbeClick}
         onTerrainReady={handleTerrainReady}
@@ -294,6 +307,7 @@ export default function App() {
       />
 
       <MapCompass viewer={cesiumViewer} />
+      <ScaleBar viewer={cesiumViewer} />
 
       <ControlPanel
         params={params}
@@ -310,6 +324,7 @@ export default function App() {
             startPrefetch(m.lat, m.lng);
             return;
           }
+          setSearchedMountain({ lat: m.lat, lng: m.lng, name: m.name });
           setTerrainReady(false);
           clearSimulation();
           clearOverlays();
@@ -331,11 +346,11 @@ export default function App() {
 
       {/* Selection mode banner */}
       {selectionMode && !showConfirmDialog && !loadingProgress && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 glass-panel text-white px-5 py-3 flex items-center gap-4 border-l-[3px] border-l-sky-400">
-          <span className="text-sm font-light">Click on the map or search a mountain to select a point</span>
+        <div className="absolute top-14 md:top-4 left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 z-20 glass-panel text-white px-4 md:px-5 py-3 flex items-center gap-3 md:gap-4 border-l-[3px] border-l-sky-400">
+          <span className="text-xs md:text-sm font-light">Tap the map or search to select a point</span>
           <button
             onClick={() => { setSelectionMode(false); setSelectedPoint(null); }}
-            className="text-xs bg-slate-600/50 hover:bg-slate-500/60 text-slate-300 px-3 py-1.5 rounded-full transition-all"
+            className="text-xs bg-slate-600/50 hover:bg-slate-500/60 text-slate-300 px-3 py-1.5 rounded-full transition-all shrink-0"
           >
             Cancel
           </button>
@@ -345,7 +360,7 @@ export default function App() {
       {/* Confirm dialog */}
       {showConfirmDialog && selectedPoint && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/50 backdrop-blur-[2px]" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-          <div className="glass-panel p-6 text-white max-w-sm">
+          <div className="glass-panel p-5 md:p-6 text-white max-w-sm mx-3 md:mx-0">
             <p className="text-sm text-slate-300 font-light mb-1">Simulate historical weather at:</p>
             <p className="font-semibold text-emerald-400 mb-4 text-lg" style={{ fontFamily: "var(--font-display)" }}>{selectedPoint.name}</p>
             <p className="text-xs text-slate-400 font-light mb-5">Fetches 7 days of history + 5 days of forecast from NVE and runs a time-stepped snow simulation.</p>
@@ -369,8 +384,8 @@ export default function App() {
 
       {/* Loading progress */}
       {loadingProgress && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/50 backdrop-blur-[2px]">
-          <div className="glass-panel p-6 text-white w-80">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/50 backdrop-blur-[2px] px-3 md:px-0">
+          <div className="glass-panel p-5 md:p-6 text-white w-full max-w-80">
             <p className="text-sm font-light text-slate-200 mb-3">{loadingProgress.stage}</p>
             <div className="w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
               <div

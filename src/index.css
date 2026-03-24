@@ -86,3 +86,40 @@ input[type="range"]::-moz-range-thumb {
 button, select {
   transition: all 0.15s ease;
 }
+
+/* Safe area support for notched devices */
+.safe-area-bottom {
+  padding-bottom: max(0.625rem, env(safe-area-inset-bottom));
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile: larger touch targets for range sliders */
+@media (max-width: 767px) {
+  input[type="range"] {
+    height: 6px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Prevent text selection on interactive elements (mobile) */
+@media (pointer: coarse) {
+  button, select, label {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+}

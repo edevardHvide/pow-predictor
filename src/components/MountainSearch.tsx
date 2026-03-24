@@ -3,9 +3,10 @@ import { searchMountains, type MountainResult } from "../api/kartverket.ts";
 
 interface MountainSearchProps {
   onSelect: (result: MountainResult) => void;
+  mobile?: boolean;
 }
 
-export default function MountainSearch({ onSelect }: MountainSearchProps) {
+export default function MountainSearch({ onSelect, mobile }: MountainSearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<MountainResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,15 +45,18 @@ export default function MountainSearch({ onSelect }: MountainSearchProps) {
   }, []);
 
   return (
-    <div ref={containerRef} className="relative flex flex-col gap-1.5">
-      <span className="text-xs text-slate-400 font-light">Search Mountain</span>
+    <div ref={containerRef} className={`relative ${mobile ? "" : "flex flex-col gap-1.5"}`}>
+      {!mobile && <span className="text-xs text-slate-400 font-light">Search Mountain</span>}
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => results.length > 0 && setOpen(true)}
-        placeholder="e.g. Trolltinden, Galdhøpiggen..."
-        className="bg-slate-800/60 text-white px-3 py-2 rounded-lg text-sm border border-slate-600/30 placeholder-slate-500 outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/20 transition-all"
+        placeholder={mobile ? "Search mountain..." : "e.g. Trolltinden, Galdhøpiggen..."}
+        className={mobile
+          ? "w-full bg-transparent text-white text-sm py-2.5 pr-3 placeholder-slate-400 outline-none"
+          : "bg-slate-800/60 text-white px-3 py-2 rounded-lg text-sm border border-slate-600/30 placeholder-slate-500 outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/20 transition-all"
+        }
       />
       {open && (
         <div className="absolute top-full left-0 right-0 mt-1.5 glass-panel z-50 max-h-48 overflow-y-auto">

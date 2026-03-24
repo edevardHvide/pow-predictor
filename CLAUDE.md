@@ -32,7 +32,8 @@ Single-page React app running locally (no backend, no cloud):
 ```
 src/
   components/        CesiumViewer, ControlPanel, WindCompass, SnowLegend,
-                     TimelineBar, MountainSearch, SnowDepthTooltip, MapCompass
+                     TimelineBar, MountainSearch, SnowDepthTooltip, MapCompass,
+                     WelcomePage
   simulation/        wind-solver, snow-model, terrain-sampler, regions, historical-sim
   rendering/         wind-layer-adapter, snow-overlay, color-scales
   hooks/             useCesium, useSimulation, useAnimationLoop
@@ -54,6 +55,7 @@ src/
 | `src/rendering/color-scales.ts` | Snow depth color mapping — brown/white/blue (manual), blue gradient (historical) |
 | `src/api/nve.ts` | NVE GridTimeSeries API client with UTM33 conversion |
 | `src/App.tsx` | Main wiring — auto-simulate, historical mode flow, depth probe |
+| `src/components/WelcomePage.tsx` | Welcome modal — app overview, usage guide, session-dismissable |
 
 ## Snow Model — 2D Saltation Advection
 
@@ -122,6 +124,17 @@ The `cesium-wind-layer` npm package uses `Cesium.defaultValue` removed from publ
 ## Powder Zone Detection
 
 Powder survives where: cold (<-2C), low wind (<70% of threshold), sheltered terrain (positive Sx), NOT wind-loaded (depth < 1.15x base). Wind-deposited lee slopes are dense **wind slab**, not powder. This is the inverted logic from the original implementation which incorrectly marked lee deposition as powder.
+
+## Mobile Layout
+
+Responsive design using Tailwind `md:` breakpoint (768px):
+
+- **ControlPanel** — Slide-in drawer from left on mobile (hamburger toggle top-left). Full fixed panel on desktop. Auto-closes on mountain select and sim start.
+- **TimelineBar** — Two-row stacked layout on mobile (controls + scrubber top, weather info below). Single row on desktop. Safe area padding for notched devices.
+- **SnowLegend** — Positioned at `bottom-20` on mobile to avoid timeline overlap, `bottom-4` on desktop.
+- **MapCompass** — Smaller on mobile (`w-11 h-11` vs `w-14 h-14`).
+- **Range sliders** — Larger touch targets on mobile (20px thumbs vs 14px).
+- **WelcomePage** — Scrollable with tighter spacing on small screens.
 
 ## Map Compass
 
