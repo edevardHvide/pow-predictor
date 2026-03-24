@@ -5,14 +5,13 @@ import type { WindParams } from "../types/wind.ts";
 
 interface ControlPanelProps {
   params: WindParams;
-  simulating: boolean;
   showSnow: boolean;
   showWind: boolean;
   historicalMode: boolean;
   historicalLoading: boolean;
+  selectionMode: boolean;
   onParamsChange: (p: WindParams) => void;
   onMountainSelect: (m: MountainResult) => void;
-  onSimulate: () => void;
   onToggleSnow: () => void;
   onToggleWind: () => void;
   onHistoricalMode: () => void;
@@ -20,21 +19,20 @@ interface ControlPanelProps {
 
 export default function ControlPanel({
   params,
-  simulating,
   showSnow,
   showWind,
   historicalMode,
   historicalLoading,
+  selectionMode,
   onParamsChange,
   onMountainSelect,
-  onSimulate,
   onToggleSnow,
   onToggleWind,
   onHistoricalMode,
 }: ControlPanelProps) {
   return (
     <div className="absolute top-4 left-4 z-10 bg-gray-900/90 text-white rounded-xl p-4 w-64 backdrop-blur-sm shadow-2xl flex flex-col gap-3">
-      <h1 className="text-lg font-bold tracking-tight">Alpine Wind</h1>
+      <h1 className="text-lg font-bold tracking-tight">Pow Predictor</h1>
 
       <MountainSearch onSelect={onMountainSelect} />
 
@@ -57,28 +55,21 @@ export default function ControlPanel({
             />
           </label>
 
-          <button
-            onClick={onSimulate}
-            disabled={simulating}
-            className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 text-white font-semibold py-2 rounded-lg transition-colors"
-          >
-            {simulating ? "Simulating..." : "Run Simulation"}
-          </button>
         </>
       )}
 
       {historicalMode && (
         <div className="text-xs text-cyan-400 bg-cyan-900/30 rounded-lg p-2 text-center">
-          Historical Mode Active — use timeline below
+          Simulation Mode Active — use timeline below
         </div>
       )}
 
       <button
         onClick={onHistoricalMode}
-        disabled={historicalLoading || historicalMode}
+        disabled={historicalLoading || historicalMode || selectionMode}
         className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-600 text-white text-sm font-semibold py-2 rounded-lg transition-colors"
       >
-        {historicalLoading ? "Loading weather data..." : historicalMode ? "Historical Mode ON" : "Historical Mode (7 days)"}
+        {historicalLoading ? "Loading weather data..." : historicalMode ? "Simulation Mode ON" : selectionMode ? "Select a point..." : "Simulation Mode (12 days)"}
       </button>
 
       <div className="flex gap-2 text-xs">

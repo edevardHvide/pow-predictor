@@ -6,7 +6,7 @@ import {
 } from "cesium";
 import type { SnowDepthGrid } from "../types/snow.ts";
 import type { ElevationGrid } from "../types/terrain.ts";
-import { snowDepthColor } from "./color-scales.ts";
+import { snowDepthColor, historicalSnowColor } from "./color-scales.ts";
 
 let currentLayer: ImageryLayer | null = null;
 
@@ -14,6 +14,7 @@ export async function renderSnowOverlay(
   viewer: Viewer,
   snow: SnowDepthGrid,
   terrain: ElevationGrid,
+  mode: "manual" | "historical" = "manual",
 ): Promise<void> {
   removeSnowOverlay(viewer);
 
@@ -35,7 +36,9 @@ export async function renderSnowOverlay(
         continue;
       }
 
-      const [red, green, blue, alpha] = snowDepthColor(snow.depth[gi], snow.isPowderZone[gi] === 1);
+      const [red, green, blue, alpha] = mode === "historical"
+        ? historicalSnowColor(snow.depth[gi])
+        : snowDepthColor(snow.depth[gi], snow.isPowderZone[gi] === 1);
       imageData.data[pi] = red;
       imageData.data[pi + 1] = green;
       imageData.data[pi + 2] = blue;

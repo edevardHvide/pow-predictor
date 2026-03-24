@@ -32,6 +32,8 @@ export default function TimelineBar({ steps, currentStep, onStepChange, onExit }
   const step = steps[currentStep];
   if (!step) return null;
 
+  const isForecast = step.timestamp.getTime() > Date.now();
+
   const fmtDate = (d: Date) =>
     d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
   const fmtTime = (d: Date) =>
@@ -69,6 +71,8 @@ export default function TimelineBar({ steps, currentStep, onStepChange, onExit }
             <option value={1}>1x</option>
             <option value={2}>2x</option>
             <option value={4}>4x</option>
+            <option value={8}>8x</option>
+            <option value={16}>16x</option>
           </select>
         </div>
 
@@ -87,6 +91,9 @@ export default function TimelineBar({ steps, currentStep, onStepChange, onExit }
           <span className="font-semibold text-white">
             {fmtDate(step.timestamp)} {fmtTime(step.timestamp)}
           </span>
+          {isForecast && (
+            <span className="text-amber-400 font-semibold">Forecast</span>
+          )}
           <span className={step.temp <= 0 ? "text-cyan-400" : "text-orange-400"}>
             {step.temp.toFixed(1)}°C
           </span>
@@ -94,7 +101,7 @@ export default function TimelineBar({ steps, currentStep, onStepChange, onExit }
             {step.precip.toFixed(1)}mm
           </span>
           <span className="text-gray-400">
-            {step.windSpeed.toFixed(0)}m/s {step.windDir}°
+            {step.windSpeed.toFixed(0)}m/s {Math.round(step.windDir)}°
           </span>
         </div>
 

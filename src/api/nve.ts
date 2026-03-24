@@ -85,21 +85,33 @@ async function findValidUtm(lat: number, lng: number): Promise<{ x: number; y: n
 }
 
 export async function fetchWeatherTimeSeries(
-  lat: number, lng: number, days = 7,
+  lat: number, lng: number, daysBack = 7, daysForward = 5,
+  onProgress?: (stage: string, progress: number) => void,
 ): Promise<WeatherTimeSeries> {
   const { x, y } = await findValidUtm(lat, lng);
 
-  const end = new Date();
-  const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const start = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+  const end = new Date(now.getTime() + daysForward * 24 * 60 * 60 * 1000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
-  console.log(`NVE: fetching ${days} days for UTM33 (${x}, ${y}), ${fmt(start)} to ${fmt(end)}`);
+  console.log(`NVE: fetching ${daysBack}d back + ${daysForward}d forward for UTM33 (${x}, ${y}), ${fmt(start)} to ${fmt(end)}`);
+
+  let completed = 0;
+  const total = 4;
+  const trackFetch = async (theme: string, label: string) => {
+    onProgress?.(label, (completed / total) * 100);
+    const result = await fetchTheme(x, y, fmt(start), fmt(end), theme);
+    completed++;
+    onProgress?.(label, (completed / total) * 100);
+    return result;
+  };
 
   const [precip, temp, windSpeed, windDir] = await Promise.all([
-    fetchTheme(x, y, fmt(start), fmt(end), "rr3h"),
-    fetchTheme(x, y, fmt(start), fmt(end), "tm3h"),
-    fetchTheme(x, y, fmt(start), fmt(end), "windSpeed10m3h"),
-    fetchTheme(x, y, fmt(start), fmt(end), "windDirection10m3h"),
+    trackFetch("rr3h", "Fetching precipitation data..."),
+    trackFetch("tm3h", "Fetching temperature data..."),
+    trackFetch("windSpeed10m3h", "Fetching wind speed data..."),
+    trackFetch("windDirection10m3h", "Fetching wind direction data..."),
   ]);
 
   // Build timestamps (3-hourly from start)
