@@ -191,6 +191,7 @@ Responsive design using Tailwind `md:` breakpoint (768px):
 - CesiumJS conflicts with React StrictMode (double-mount destroys viewer). Use non-StrictMode.
 - `createWorldTerrainAsync()` is async — guard against unmount with `destroyed` flag.
 - To pass Cesium viewer to React components that need re-renders (e.g. compass), store it in state AND ref. Ref alone won't trigger re-render.
+- Cesium labels: use native font size at `scale: 1.0`. Large font + small scale (e.g. `52px` at `scale: 0.25`) renders blurry because Cesium rasterizes the text then downscales the bitmap.
 
 ## Water Masking
 

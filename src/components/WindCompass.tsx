@@ -119,10 +119,6 @@ export default function WindCompass({ direction, onChange }: WindCompassProps) {
         {/* Arrow head */}
         <polygon points={headPoints} fill="#7dd3fc" />
 
-        {/* Origin dot (wind comes FROM here) */}
-        <circle cx={tailX} cy={tailY} r="3.5" fill="#f87171" stroke="#0f172a" strokeWidth="1.5" />
-        <circle cx={tailX} cy={tailY} r="6" fill="none" stroke="rgba(248,113,113,0.2)" strokeWidth="1" />
-
         {/* Center dot */}
         <circle cx="60" cy="60" r="2" fill="#7dd3fc" opacity="0.6" />
       </svg>
