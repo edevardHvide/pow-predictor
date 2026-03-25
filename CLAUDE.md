@@ -212,6 +212,28 @@ Terrain height < 40m = water/shore (transparent in snow overlay, no particles). 
 - **`historical-sim.ts` is unchanged** — its `yieldToUI` calls are harmless in worker context (~120ms overhead, acceptable)
 - **Cancel support:** `cancel` message type + `cancelled` flag checked in progress callback
 
+## Infrastructure (OpenTofu)
+
+All AWS resources are codified in `infra/` and managed with OpenTofu:
+
+- **S3:** `pow-predictor-frontend` (static assets, public access blocked, CloudFront OAC)
+- **CloudFront:** Distribution `E1FX2FUC1H43O2` with SPA error routing (403/404 → index.html)
+- **Lambda:** `pow-predictor-nve-proxy` (Python 3.11, proxies NVE API to avoid CORS)
+- **API Gateway v2:** HTTP API with `GET /api/nve/{proxy+}` route
+- **IAM:** Scoped deploy user `pow-predictor` (S3, CloudFront, Lambda, CloudWatch only)
+- **State:** `s3://pow-predictor-tfstate` (versioned)
+
+**Two AWS profiles:**
+- `tennis-bot` — admin, runs `tofu plan/apply` (infra changes)
+- `pow-predictor` — scoped, runs deploys (`/deploy` skill)
+
+```bash
+cd infra
+tofu init            # First time setup
+tofu plan            # Preview changes
+tofu apply           # Apply changes
+```
+
 ## Key Commands
 
 ```bash
