@@ -203,10 +203,46 @@ function generateSamplePoints(
   return points;
 }
 
+// ── Weather cache (localStorage, 3h TTL) ────────────────
+const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
+const CACHE_KEY_PREFIX = "pow-weather-";
+
+function cacheKey(bboxWest: number, bboxSouth: number, bboxEast: number, bboxNorth: number): string {
+  return CACHE_KEY_PREFIX + [bboxWest, bboxSouth, bboxEast, bboxNorth].map(v => v.toFixed(2)).join(",");
+}
+
+function getCachedWeather(key: string): SpatialWeatherTimeSeries | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL_MS) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    // Restore Date objects from ISO strings
+    data.timestamps = data.timestamps.map((s: string) => new Date(s));
+    return data as SpatialWeatherTimeSeries;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedWeather(key: string, data: SpatialWeatherTimeSeries): void {
+  try {
+    const serializable = {
+      timestamps: data.timestamps.map(d => d.toISOString()),
+      stations: data.stations,
+    };
+    localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: serializable }));
+  } catch { /* quota exceeded — ignore */ }
+}
+
 /**
  * Fetch spatial weather: NVE for history, MET (yr.no) for forecast.
  * MET provides accurate terrain-aware wind from the MEPS 2.5km model.
  * Falls back to NVE-only if MET fails.
+ * Cached in localStorage for 3 hours to avoid redundant API calls.
  */
 export async function fetchSpatialWeather(
   centerLat: number, centerLng: number,
@@ -215,6 +251,14 @@ export async function fetchSpatialWeather(
   daysBack = 7, daysForward = 5,
   onProgress?: (stage: string, progress: number) => void,
 ): Promise<SpatialWeatherTimeSeries> {
+  // Check cache first
+  const key = cacheKey(bboxWest, bboxSouth, bboxEast, bboxNorth);
+  const cached = getCachedWeather(key);
+  if (cached) {
+    console.log("Weather: using cached data");
+    onProgress?.("Weather data loaded (cached)", 100);
+    return cached;
+  }
   const now = new Date();
   const histStart = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
   const histEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000); // NVE: history to tomorrow
@@ -280,7 +324,9 @@ export async function fetchSpatialWeather(
   if (metResult.stations.length === 0 || metResult.timestamps.length === 0) {
     console.log("MET forecast unavailable, using NVE-only");
     onProgress?.("Weather data loaded (NVE only)", 100);
-    return { timestamps: nveTimestamps, stations: nveStations };
+    const result = { timestamps: nveTimestamps, stations: nveStations };
+    setCachedWeather(key, result);
+    return result;
   }
 
   // Find the splice point: first MET timestamp after "now"
@@ -298,7 +344,9 @@ export async function fetchSpatialWeather(
     // All MET data is in the past — use NVE only
     console.log("MET data does not extend past now, using NVE-only");
     onProgress?.("Weather data loaded (NVE only)", 100);
-    return { timestamps: nveTimestamps, stations: nveStations };
+    const result = { timestamps: nveTimestamps, stations: nveStations };
+    setCachedWeather(key, result);
+    return result;
   }
 
   const metKeepTimestamps = metResult.timestamps.slice(metStartIdx);
@@ -359,5 +407,7 @@ export async function fetchSpatialWeather(
   console.log(`Merged: ${nveKeepLen} NVE history + ${metKeepLen} MET forecast = ${mergedTimestamps.length} timesteps, ${mergedStations.length} stations`);
   console.log(`Splice at: ${new Date(spliceMs).toISOString()}`);
 
-  return { timestamps: mergedTimestamps, stations: mergedStations };
+  const result = { timestamps: mergedTimestamps, stations: mergedStations };
+  setCachedWeather(key, result);
+  return result;
 }

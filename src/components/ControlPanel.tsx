@@ -17,6 +17,7 @@ interface ControlPanelProps {
   onToggleSnow: () => void;
   onToggleWind: () => void;
   onHistoricalMode: () => void;
+  onExitHistorical: () => void;
 }
 
 export default function ControlPanel({
@@ -31,6 +32,7 @@ export default function ControlPanel({
   onToggleSnow,
   onToggleWind,
   onHistoricalMode,
+  onExitHistorical,
 }: ControlPanelProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -158,36 +160,42 @@ export default function ControlPanel({
           </>
         )}
 
-        {historicalMode && (
-          <div className="text-xs text-sky-300 bg-sky-950/40 border border-sky-800/30 rounded-lg p-2.5 text-center font-light">
-            Simulation Active — use timeline below
-          </div>
-        )}
-
         <div className="h-px bg-gradient-to-r from-slate-600/40 to-transparent" />
 
         <button
-          onClick={() => { onHistoricalMode(); setMobileOpen(false); }}
-          disabled={historicalLoading || historicalMode || selectionMode}
-          className="bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 text-white text-sm font-medium py-2.5 rounded-lg shadow-lg shadow-emerald-900/30 transition-all"
+          onClick={() => {
+            if (historicalMode) {
+              onExitHistorical();
+            } else {
+              onHistoricalMode();
+            }
+            setMobileOpen(false);
+          }}
+          disabled={historicalLoading || selectionMode}
+          className={historicalMode
+            ? "bg-gradient-to-b from-rose-500/80 to-rose-600/80 hover:from-rose-400/90 hover:to-rose-500/90 text-white text-sm font-medium py-2.5 rounded-lg shadow-lg shadow-rose-900/20 transition-all"
+            : "bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-400 text-white text-sm font-medium py-2.5 rounded-lg shadow-lg shadow-emerald-900/30 transition-all"
+          }
         >
-          {historicalLoading ? "Loading weather data..." : historicalMode ? "Simulation Active" : selectionMode ? "Select a point..." : "Run Pow Simulation"}
+          {historicalLoading ? "Loading weather data..." : historicalMode ? "Stop Simulation" : selectionMode ? "Select a point..." : "Run Pow Simulation"}
         </button>
 
-        <div className="flex gap-2 text-xs">
-          <button
-            onClick={onToggleWind}
-            className={`flex-1 py-2 md:py-1.5 rounded-full font-medium transition-all ${showWind ? "bg-sky-600/80 text-white shadow-md shadow-sky-900/30" : "bg-slate-700/60 text-slate-400 hover:bg-slate-700/80"}`}
-          >
-            Wind {showWind ? "ON" : "OFF"}
-          </button>
-          <button
-            onClick={onToggleSnow}
-            className={`flex-1 py-2 md:py-1.5 rounded-full font-medium transition-all ${showSnow ? "bg-sky-600/80 text-white shadow-md shadow-sky-900/30" : "bg-slate-700/60 text-slate-400 hover:bg-slate-700/80"}`}
-          >
-            Snow {showSnow ? "ON" : "OFF"}
-          </button>
-        </div>
+        {!historicalMode && (
+          <div className="flex gap-2 text-xs">
+            <button
+              onClick={onToggleWind}
+              className={`flex-1 py-2 md:py-1.5 rounded-full font-medium transition-all ${showWind ? "bg-sky-600/80 text-white shadow-md shadow-sky-900/30" : "bg-slate-700/60 text-slate-400 hover:bg-slate-700/80"}`}
+            >
+              Wind {showWind ? "ON" : "OFF"}
+            </button>
+            <button
+              onClick={onToggleSnow}
+              className={`flex-1 py-2 md:py-1.5 rounded-full font-medium transition-all ${showSnow ? "bg-sky-600/80 text-white shadow-md shadow-sky-900/30" : "bg-slate-700/60 text-slate-400 hover:bg-slate-700/80"}`}
+            >
+              Snow {showSnow ? "ON" : "OFF"}
+            </button>
+          </div>
+        )}
 
         {/* Feedback + version */}
         <div className="flex items-center justify-between pt-1">

@@ -81,7 +81,15 @@ export function useHistoricalSim(workerRef: { current: Worker | null }) {
             stepDataToStep(s, msg.rows, msg.cols, msg.layers, msg.layerHeights),
           );
           setSteps(converted);
-          setCurrentStep(0);
+          // Default to the step closest to "now"
+          const now = Date.now();
+          let nowIdx = 0;
+          let minDist = Infinity;
+          for (let i = 0; i < converted.length; i++) {
+            const dist = Math.abs(converted[i].timestamp.getTime() - now);
+            if (dist < minDist) { minDist = dist; nowIdx = i; }
+          }
+          setCurrentStep(nowIdx);
           setLoading(false);
           setProgress(null);
           silentRef.current = false;

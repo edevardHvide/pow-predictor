@@ -18,6 +18,16 @@ export default function TimelineBar({ steps, currentStep, onStepChange, onExit }
   const [speed, setSpeed] = useState(1);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
+  // Find the step closest to "now" for the marker
+  const now = Date.now();
+  let nowStepIdx = 0;
+  let minDist = Infinity;
+  for (let i = 0; i < steps.length; i++) {
+    const dist = Math.abs(steps[i].timestamp.getTime() - now);
+    if (dist < minDist) { minDist = dist; nowStepIdx = i; }
+  }
+  const nowPercent = steps.length > 1 ? (nowStepIdx / (steps.length - 1)) * 100 : 0;
+
   useEffect(() => {
     if (!playing) {
       clearInterval(timerRef.current);
@@ -40,7 +50,7 @@ export default function TimelineBar({ steps, currentStep, onStepChange, onExit }
     d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-10 glass-bar px-3 py-2.5 md:px-5 md:py-3.5 safe-area-bottom">
+    <div className="absolute bottom-0 left-0 right-0 z-10 glass-bar px-3 py-2.5 md:px-5 md:py-3.5 safe-area-bottom" style={{ background: "rgba(40, 12, 12, 0.75)" }}>
       <div className="flex flex-col gap-2 md:gap-0 md:flex-row md:items-center md:gap-4 max-w-5xl mx-auto">
         {/* Row 1 on mobile: scrubber + exit */}
         <div className="flex items-center gap-2 md:contents">
@@ -91,15 +101,24 @@ export default function TimelineBar({ steps, currentStep, onStepChange, onExit }
             </select>
           </div>
 
-          {/* Time scrubber */}
-          <input
-            type="range"
-            min={0}
-            max={steps.length - 1}
-            value={currentStep}
-            onChange={(e) => { setPlaying(false); onStepChange(Number(e.target.value)); }}
-            className="flex-1 min-w-0"
-          />
+          {/* Time scrubber with "Now" marker */}
+          <div className="flex-1 min-w-0 relative">
+            <input
+              type="range"
+              min={0}
+              max={steps.length - 1}
+              value={currentStep}
+              onChange={(e) => { setPlaying(false); onStepChange(Number(e.target.value)); }}
+              className="w-full"
+            />
+            <div
+              className="absolute top-0 flex flex-col items-center pointer-events-none"
+              style={{ left: `${nowPercent}%`, transform: "translateX(-50%)" }}
+            >
+              <span className="text-[9px] font-semibold text-amber-300 leading-none">Now</span>
+              <div className="w-px h-2 bg-amber-400/70" />
+            </div>
+          </div>
 
           {/* Exit button - visible inline on mobile, end on desktop */}
           <button

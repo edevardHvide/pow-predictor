@@ -72,10 +72,10 @@ export default function CesiumViewer({
     });
   }, [ready, terrainProvider, region, onTerrainReady]);
 
-  // Click handler for selection mode
+  // Click handler — always active (selection mode uses crosshair cursor)
   useEffect(() => {
     const v = viewer.current;
-    if (!v || !selectionMode) return;
+    if (!v || historicalMode) return;
 
     const handler = new ScreenSpaceEventHandler(v.scene.canvas);
     handler.setInputAction((event: { position: { x: number; y: number } }) => {
@@ -84,7 +84,6 @@ export default function CesiumViewer({
 
       const cartesian = v.scene.globe.pick(ray, v.scene);
       if (!cartesian) {
-        // Fallback to ellipsoid
         const ellipsoidPos = v.camera.pickEllipsoid(event.position as any);
         if (!ellipsoidPos) return;
         const carto = Cartographic.fromCartesian(ellipsoidPos);
@@ -96,14 +95,13 @@ export default function CesiumViewer({
       onMapClick?.(CesiumMath.toDegrees(carto.latitude), CesiumMath.toDegrees(carto.longitude));
     }, ScreenSpaceEventType.LEFT_CLICK);
 
-    // Set crosshair cursor
-    v.canvas.style.cursor = "crosshair";
+    if (selectionMode) v.canvas.style.cursor = "crosshair";
 
     return () => {
       handler.destroy();
       if (v.canvas) v.canvas.style.cursor = "";
     };
-  }, [selectionMode, viewer, onMapClick]);
+  }, [selectionMode, historicalMode, viewer, onMapClick]);
 
 
   // Mountain arrow marker with name label

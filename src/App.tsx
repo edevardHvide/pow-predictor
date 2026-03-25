@@ -278,15 +278,32 @@ export default function App() {
     }
   }, [searchedMountain, startPrefetch]);
 
-  // Handle map click during selection mode
+  // Handle map click — selection mode OR free-click to set simulation point
   const confirmDialogRef = useRef(false);
   const handleMapClick = useCallback((lat: number, lng: number) => {
-    if (!selectionMode || confirmDialogRef.current) return;
-    setSelectedPoint({ lat, lng, name: `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E` });
-    confirmDialogRef.current = true;
-    setShowConfirmDialog(true);
-    startPrefetch(lat, lng);
-  }, [selectionMode, startPrefetch]);
+    if (confirmDialogRef.current) return;
+
+    if (selectionMode) {
+      setSelectedPoint({ lat, lng, name: `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E` });
+      confirmDialogRef.current = true;
+      setShowConfirmDialog(true);
+      startPrefetch(lat, lng);
+      return;
+    }
+
+    // Free-click: set as simulation point (like searching a mountain)
+    if (!historicalMode) {
+      const name = `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`;
+      setSearchedMountain({ lat, lng, name });
+      setTerrainReady(false);
+      clearSimulation();
+      clearOverlays();
+      historicalSim.reset();
+      backgroundWeatherRef.current = null;
+      setRegion(regionFromCoordinates(name, lat, lng));
+      startPrefetch(lat, lng);
+    }
+  }, [selectionMode, historicalMode, startPrefetch, clearSimulation, clearOverlays, historicalSim]);
 
   // Confirm selected point and run historical simulation
   const handleConfirmSelection = useCallback(async () => {
@@ -521,15 +538,16 @@ export default function App() {
           });
         }}
         onHistoricalMode={enterHistoricalMode}
+        onExitHistorical={exitHistoricalMode}
       />
 
-      {/* Mobile: floating simulate button below search bar */}
+      {/* Floating simulate button — mobile: below search bar, desktop: top center */}
       {searchedMountain && !historicalMode && !selectionMode && !showConfirmDialog && !displayProgress && (
-        <div className="md:hidden absolute top-[4.25rem] left-3 right-14 z-20 flex justify-center safe-area-top animate-fade-in-up">
+        <div className="absolute top-[4.25rem] md:top-4 left-3 right-14 md:left-1/2 md:right-auto md:-translate-x-1/2 z-20 flex justify-center safe-area-top animate-fade-in-up" key={searchedMountain.name + searchedMountain.lat}>
           <button
             onClick={enterHistoricalMode}
             disabled={historicalSim.loading}
-            className="bg-gradient-to-r from-emerald-500 to-emerald-600 active:from-emerald-400 active:to-emerald-500 disabled:from-slate-600 disabled:to-slate-700 disabled:text-slate-400 text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-lg shadow-emerald-900/40 transition-all active:scale-95"
+            className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 active:from-emerald-400 active:to-emerald-500 disabled:from-slate-600 disabled:to-slate-700 disabled:text-slate-400 text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-lg shadow-emerald-900/40 transition-all active:scale-95"
           >
             {historicalSim.loading ? "Loading..." : "Simulate"}
           </button>
