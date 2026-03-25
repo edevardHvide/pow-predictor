@@ -13,7 +13,7 @@ import type { PlaceResult } from "./api/kartverket.ts";
 import { fetchSpatialWeather, type SpatialWeatherTimeSeries } from "./api/nve.ts";
 import { useSimulation } from "./hooks/useSimulation.ts";
 import { useHistoricalSim } from "./hooks/useHistoricalSim.ts";
-import { renderSnowOverlay, removeSnowOverlay, SnowOverlayManager } from "./rendering/snow-overlay.ts";
+import { renderSnowOverlay, removeSnowOverlay, SnowOverlayManager, computeColorStats } from "./rendering/snow-overlay.ts";
 import { WindCanvasLayer } from "./rendering/wind-layer-adapter.ts";
 import { isMobileDevice, MOBILE_PARTICLE_COUNT, DESKTOP_PARTICLE_COUNT } from "./utils/device.ts";
 import type { WindParams } from "./types/wind.ts";
@@ -189,13 +189,16 @@ export default function App() {
       const depthB = step.snowGrid.depth;
       const { rows, cols } = step.snowGrid;
 
-      const animate = () => {
+      // Precompute color stats from target step — stable across all frames
+      const colorStats = computeColorStats(depthB, rows, cols, terrain);
+
+      const animate = async () => {
         const elapsed = performance.now() - start;
         const t = Math.min(elapsed / INTERP_MS, 1);
         // Ease-out quadratic for natural feel
         const ease = 1 - (1 - t) * (1 - t);
 
-        overlayMgr.renderInterpolated(depthA, depthB, ease, rows, cols, terrain);
+        await overlayMgr.renderInterpolated(depthA, depthB, ease, rows, cols, terrain, colorStats);
 
         if (t < 1) {
           interpRaf.current = requestAnimationFrame(animate);
@@ -520,6 +523,19 @@ export default function App() {
         onHistoricalMode={enterHistoricalMode}
       />
 
+      {/* Mobile: floating simulate button below search bar */}
+      {searchedMountain && !historicalMode && !selectionMode && !showConfirmDialog && !displayProgress && (
+        <div className="md:hidden absolute top-[4.25rem] left-3 right-14 z-20 flex justify-center safe-area-top animate-fade-in-up">
+          <button
+            onClick={enterHistoricalMode}
+            disabled={historicalSim.loading}
+            className="bg-gradient-to-r from-emerald-500 to-emerald-600 active:from-emerald-400 active:to-emerald-500 disabled:from-slate-600 disabled:to-slate-700 disabled:text-slate-400 text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-lg shadow-emerald-900/40 transition-all active:scale-95"
+          >
+            {historicalSim.loading ? "Loading..." : "Simulate"}
+          </button>
+        </div>
+      )}
+
       {/* Selection mode banner */}
       {selectionMode && !showConfirmDialog && !displayProgress && (
         <div className="absolute top-14 md:top-4 left-3 right-3 md:left-1/2 md:right-auto md:-translate-x-1/2 z-20 glass-panel text-white px-4 md:px-5 py-3 flex items-center gap-3 md:gap-4 border-l-[3px] border-l-sky-400">
@@ -535,7 +551,7 @@ export default function App() {
 
       {/* Confirm dialog */}
       {showConfirmDialog && selectedPoint && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/50 backdrop-blur-[2px]" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+        <div className="absolute inset-0 z-20 flex items-center md:justify-center justify-end pb-[60%] md:pb-0 bg-slate-950/50 backdrop-blur-[2px]" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
           <div className="glass-panel p-5 md:p-6 text-white max-w-sm mx-5 md:mx-0">
             <p className="text-sm text-slate-300 font-light mb-1">Simulate historical weather at:</p>
             <p className="font-semibold text-emerald-400 mb-4 text-lg" style={{ fontFamily: "var(--font-display)" }}>{selectedPoint.name}</p>

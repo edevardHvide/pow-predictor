@@ -30,8 +30,14 @@ export default function PlaceSearch({
   const [open, setOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
+  const skipSearchRef = useRef(false);
 
   useEffect(() => {
+    if (skipSearchRef.current) {
+      skipSearchRef.current = false;
+      return;
+    }
+
     if (query.length < 2) {
       setResults([]);
       setOpen(false);
@@ -62,7 +68,6 @@ export default function PlaceSearch({
 
   return (
     <div ref={containerRef} className={`relative ${mobile ? "" : "flex flex-col gap-1.5"}`}>
-      {!mobile && <span className="text-xs text-slate-400 font-light">Hvor går turen?</span>}
       <input
         type="text"
         value={query}
@@ -87,6 +92,7 @@ export default function PlaceSearch({
               key={`${r.name}-${r.lat}-${r.lng}-${i}`}
               onClick={() => {
                 onSelect(r);
+                skipSearchRef.current = true;
                 setQuery(r.name);
                 setOpen(false);
               }}

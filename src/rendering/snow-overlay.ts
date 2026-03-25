@@ -10,12 +10,41 @@ import { snowDepthColor, historicalSnowColor } from "./color-scales.ts";
 
 const CROSSFADE_MS = 300;
 
+export interface ColorStats {
+  mean: number;
+  spread: number;
+}
+
+export function computeColorStats(
+  depth: Float64Array,
+  rows: number,
+  cols: number,
+  terrain: ElevationGrid,
+): ColorStats {
+  let sum = 0, count = 0;
+  for (let i = 0; i < rows * cols; i++) {
+    if (terrain.heights[i] >= 40 && depth[i] > 0.5) {
+      sum += depth[i];
+      count++;
+    }
+  }
+  const mean = count > 0 ? sum / count : 0;
+  let maxDev = 0;
+  for (let i = 0; i < rows * cols; i++) {
+    if (terrain.heights[i] >= 40 && depth[i] > 0.5) {
+      maxDev = Math.max(maxDev, Math.abs(depth[i] - mean));
+    }
+  }
+  return { mean, spread: Math.max(maxDev, 3) };
+}
+
 export class SnowOverlayManager {
   private viewer: Viewer;
   private currentLayer: ImageryLayer | null = null;
   private fadingLayer: ImageryLayer | null = null;
   private fadeRaf: number | null = null;
   private _targetAlpha = 0.55;
+  private renderGen = 0;
 
   constructor(viewer: Viewer) {
     this.viewer = viewer;
@@ -30,6 +59,7 @@ export class SnowOverlayManager {
     terrain: ElevationGrid,
     mode: "manual" | "historical" = "manual",
   ): Promise<void> {
+    const gen = ++this.renderGen;
     const canvas = this.paintCanvas(snow, terrain, mode);
     const { bbox } = terrain;
     const rect = Rectangle.fromDegrees(bbox.west, bbox.south, bbox.east, bbox.north);
@@ -37,6 +67,8 @@ export class SnowOverlayManager {
       canvas.toDataURL(),
       { rectangle: rect },
     );
+
+    if (gen !== this.renderGen) return; // Stale render — discard
 
     const newLayer = this.viewer.imageryLayers.addImageryProvider(provider);
 
@@ -60,7 +92,9 @@ export class SnowOverlayManager {
     rows: number,
     cols: number,
     terrain: ElevationGrid,
+    colorStats?: ColorStats,
   ): Promise<void> {
+    const gen = ++this.renderGen;
     const n = rows * cols;
     const blended = new Float64Array(n);
     const oneMinusT = 1 - t;
@@ -76,7 +110,7 @@ export class SnowOverlayManager {
       cols,
     };
 
-    const canvas = this.paintCanvas(snow, terrain, "historical");
+    const canvas = this.paintCanvas(snow, terrain, "historical", colorStats);
     const { bbox } = terrain;
     const rect = Rectangle.fromDegrees(bbox.west, bbox.south, bbox.east, bbox.north);
     const provider = await SingleTileImageryProvider.fromUrl(
@@ -84,20 +118,26 @@ export class SnowOverlayManager {
       { rectangle: rect },
     );
 
+    if (gen !== this.renderGen) return; // Stale render — discard
+
     const newLayer = this.viewer.imageryLayers.addImageryProvider(provider);
     newLayer.alpha = this._targetAlpha;
 
-    // Instantly swap (no crossfade for interpolated frames — they're already smooth)
-    if (this.currentLayer) {
-      this.viewer.imageryLayers.remove(this.currentLayer);
-    }
-    // Also clean up any fading layer
-    if (this.fadingLayer) {
-      this.viewer.imageryLayers.remove(this.fadingLayer);
-      this.fadingLayer = null;
-    }
-
+    // Capture old layers, update state immediately
+    const oldLayer = this.currentLayer;
+    const oldFading = this.fadingLayer;
     this.currentLayer = newLayer;
+    this.fadingLayer = null;
+
+    // Defer removal by 1 frame so Cesium composites the new tile first
+    requestAnimationFrame(() => {
+      if (oldLayer && this.viewer.imageryLayers.contains(oldLayer)) {
+        this.viewer.imageryLayers.remove(oldLayer);
+      }
+      if (oldFading && this.viewer.imageryLayers.contains(oldFading)) {
+        this.viewer.imageryLayers.remove(oldFading);
+      }
+    });
   }
 
   remove(): void {
@@ -120,6 +160,7 @@ export class SnowOverlayManager {
     snow: SnowDepthGrid,
     terrain: ElevationGrid,
     mode: "manual" | "historical",
+    colorStats?: ColorStats,
   ): HTMLCanvasElement {
     // 1. Paint at grid resolution (1 pixel per cell)
     const raw = document.createElement("canvas");
@@ -132,22 +173,27 @@ export class SnowOverlayManager {
     let meanDepth = 0;
     let spreadDepth = 15;
     if (mode === "historical") {
-      let sum = 0, count = 0;
-      for (let i = 0; i < snow.rows * snow.cols; i++) {
-        if (terrain.heights[i] >= 40 && snow.depth[i] > 0.5) {
-          sum += snow.depth[i];
-          count++;
+      if (colorStats) {
+        meanDepth = colorStats.mean;
+        spreadDepth = colorStats.spread;
+      } else {
+        let sum = 0, count = 0;
+        for (let i = 0; i < snow.rows * snow.cols; i++) {
+          if (terrain.heights[i] >= 40 && snow.depth[i] > 0.5) {
+            sum += snow.depth[i];
+            count++;
+          }
         }
-      }
-      meanDepth = count > 0 ? sum / count : 0;
-      // Spread = max absolute deviation from mean (clamped to reasonable range)
-      let maxDev = 0;
-      for (let i = 0; i < snow.rows * snow.cols; i++) {
-        if (terrain.heights[i] >= 40 && snow.depth[i] > 0.5) {
-          maxDev = Math.max(maxDev, Math.abs(snow.depth[i] - meanDepth));
+        meanDepth = count > 0 ? sum / count : 0;
+        // Spread = max absolute deviation from mean (clamped to reasonable range)
+        let maxDev = 0;
+        for (let i = 0; i < snow.rows * snow.cols; i++) {
+          if (terrain.heights[i] >= 40 && snow.depth[i] > 0.5) {
+            maxDev = Math.max(maxDev, Math.abs(snow.depth[i] - meanDepth));
+          }
         }
+        spreadDepth = Math.max(maxDev, 3); // at least 3cm spread to avoid div issues
       }
-      spreadDepth = Math.max(maxDev, 3); // at least 3cm spread to avoid div issues
     }
 
     for (let r = 0; r < snow.rows; r++) {

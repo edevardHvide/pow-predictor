@@ -7,12 +7,10 @@ import {
   Cartographic,
   Math as CesiumMath,
   Cartesian3,
-  Color,
   Entity,
   VerticalOrigin,
   HorizontalOrigin,
   HeightReference,
-  LabelStyle,
   Cartesian2,
   type Viewer,
 } from "cesium";
@@ -52,6 +50,7 @@ export default function CesiumViewer({
   const { viewer, terrainProvider, ready } = useCesium(containerRef, region);
   const sampledRegionRef = useRef<string>("");
   const mountainMarkerRef = useRef<Entity | null>(null);
+  const mountainLabelRef = useRef<Entity | null>(null);
 
   // Expose viewer instance
   useEffect(() => {
@@ -116,6 +115,10 @@ export default function CesiumViewer({
       v.entities.remove(mountainMarkerRef.current);
       mountainMarkerRef.current = null;
     }
+    if (mountainLabelRef.current) {
+      v.entities.remove(mountainLabelRef.current);
+      mountainLabelRef.current = null;
+    }
 
     if (searchedMountain) {
       // Minimal pin marker — teardrop shape with inner dot
@@ -147,18 +150,47 @@ export default function CesiumViewer({
           heightReference: HeightReference.CLAMP_TO_GROUND,
           pixelOffset: new Cartesian2(0, 2),
         },
-        label: {
-          text: searchedMountain.name,
-          font: "600 14px Outfit, sans-serif",
-          scale: 1.0,
-          fillColor: Color.WHITE,
-          outlineColor: new Color(0.06, 0.09, 0.16, 0.9),
-          outlineWidth: 4,
-          style: LabelStyle.FILL_AND_OUTLINE,
+      });
+
+      // SVG label — clean white text with dark outline for readability
+      const name = searchedMountain.name;
+      const escaped = name.replace(/&/g, "%26amp;").replace(/</g, "%26lt;");
+      const charW = 9;
+      const textW = name.length * charW;
+      const svgW = textW + 20;
+      const svgH = 28;
+
+      const labelSvg = [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`,
+        `<defs>`,
+        `<filter id="o" x="-5%25" y="-15%25" width="110%25" height="130%25">`,
+        `<feMorphology operator="dilate" radius="2.5" in="SourceAlpha" result="expanded"/>`,
+        `<feGaussianBlur in="expanded" stdDeviation="1.2" result="blurred"/>`,
+        `<feFlood flood-color="%23000" flood-opacity="0.7" result="color"/>`,
+        `<feComposite in="color" in2="blurred" operator="in" result="shadow"/>`,
+        `<feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>`,
+        `</filter>`,
+        `</defs>`,
+        `<text x="${svgW / 2}" y="${svgH / 2 + 5}" text-anchor="middle" `,
+        `font-family="-apple-system, 'SF Pro Display', 'Segoe UI', Roboto, Helvetica, sans-serif" `,
+        `font-size="15" font-weight="600" letter-spacing="0.5" fill="white" filter="url(%23o)">`,
+        `${escaped}`,
+        `</text>`,
+        `</svg>`,
+      ].join("");
+      const labelUri = `data:image/svg+xml,${encodeURIComponent(labelSvg)}`;
+
+      mountainLabelRef.current = v.entities.add({
+        position: Cartesian3.fromDegrees(searchedMountain.lng, searchedMountain.lat),
+        billboard: {
+          image: labelUri,
+          width: svgW,
+          height: svgH,
           verticalOrigin: VerticalOrigin.BOTTOM,
           horizontalOrigin: HorizontalOrigin.CENTER,
-          pixelOffset: new Cartesian2(0, -44),
           heightReference: HeightReference.CLAMP_TO_GROUND,
+          pixelOffset: new Cartesian2(0, -42),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
       });
     }
@@ -167,6 +199,10 @@ export default function CesiumViewer({
       if (mountainMarkerRef.current && v.entities.contains(mountainMarkerRef.current)) {
         v.entities.remove(mountainMarkerRef.current);
         mountainMarkerRef.current = null;
+      }
+      if (mountainLabelRef.current && v.entities.contains(mountainLabelRef.current)) {
+        v.entities.remove(mountainLabelRef.current);
+        mountainLabelRef.current = null;
       }
     };
   }, [searchedMountain, viewer]);
