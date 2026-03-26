@@ -12,7 +12,7 @@ terraform {
     bucket  = "pow-predictor-tfstate"
     key     = "infra/terraform.tfstate"
     region  = "eu-north-1"
-    profile = "tennis-bot"
+    profile = "pow-predictor"
   }
 }
 

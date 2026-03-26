@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "aws_profile" {
   description = "AWS CLI profile (needs admin-level access for infra changes)"
   type        = string
-  default     = "tennis-bot"
+  default     = "pow-predictor"
 }
 
 variable "project_name" {

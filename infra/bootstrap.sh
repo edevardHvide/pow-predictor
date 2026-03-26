@@ -1,11 +1,11 @@
 #!/bin/bash
 # Bootstrap: create the S3 bucket for OpenTofu state.
-# Run once before `tofu init`. Requires tennis-bot (admin) profile.
+# Run once before `tofu init`. Requires pow-predictor profile.
 set -euo pipefail
 
 BUCKET="pow-predictor-tfstate"
 REGION="eu-north-1"
-PROFILE="tennis-bot"
+PROFILE="pow-predictor"
 
 echo "Creating tfstate bucket: $BUCKET"
 aws s3api create-bucket \

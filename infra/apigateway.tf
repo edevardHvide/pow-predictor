@@ -7,7 +7,7 @@ resource "aws_apigatewayv2_api" "nve_proxy" {
   cors_configuration {
     allow_headers = ["*"]
     allow_methods = ["GET", "POST", "OPTIONS"]
-    allow_origins = ["*"]
+    allow_origins = ["https://powpredictor.info", "https://www.powpredictor.info", "http://localhost:5173"]
   }
 }
 
