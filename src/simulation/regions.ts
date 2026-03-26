@@ -22,16 +22,16 @@ export function regionFromCoordinates(name: string, lat: number, lng: number): T
 
 export const REGIONS: TerrainRegion[] = [
   {
-    name: "Lofoten",
-    bbox: { west: 14.15, south: 68.08, east: 14.65, north: 68.28 },
-    cameraPosition: { lng: 14.4, lat: 68.08, height: 6000 },
-    cameraPitch: -25,
+    name: "Lyngen Alps",
+    bbox: { west: 19.9, south: 69.5, east: 20.45, north: 69.72 },
+    cameraPosition: { lng: 20.15, lat: 69.61, height: 800 },
+    cameraPitch: -30,
     cameraHeading: 0,
   },
   {
-    name: "Lyngen Alps",
-    bbox: { west: 20.0, south: 69.55, east: 20.45, north: 69.75 },
-    cameraPosition: { lng: 20.2, lat: 69.55, height: 7000 },
+    name: "Lofoten",
+    bbox: { west: 14.15, south: 68.08, east: 14.65, north: 68.28 },
+    cameraPosition: { lng: 14.4, lat: 68.08, height: 6000 },
     cameraPitch: -25,
     cameraHeading: 0,
   },
