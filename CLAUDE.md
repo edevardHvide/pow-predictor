@@ -260,13 +260,23 @@ All AWS resources are codified in `infra/` and managed with OpenTofu:
 - **S3:** `pow-predictor-frontend` (static assets, public access blocked, CloudFront OAC)
 - **CloudFront:** Distribution `E1FX2FUC1H43O2` with SPA error routing (403/404 → index.html)
 - **Lambda:** `pow-predictor-nve-proxy` (Python 3.11, proxies NVE API to avoid CORS)
-- **API Gateway v2:** HTTP API with `GET /api/nve/{proxy+}` route
+- **Lambda:** `pow-predictor-conditions-summary` (Python 3.11, calls Claude Haiku for RegObs analysis)
+- **API Gateway v2:** HTTP API with `GET /api/nve/{proxy+}` and `POST /api/conditions-summary` routes
 - **IAM:** Scoped deploy user `pow-predictor` (S3, CloudFront, Lambda, CloudWatch only)
 - **State:** `s3://pow-predictor-tfstate` (versioned)
 
 **Two AWS profiles:**
-- `tennis-bot` — admin, runs `tofu plan/apply` (infra changes)
-- `pow-predictor` — scoped, runs deploys (`/deploy` skill)
+- `tennis-bot` — admin, runs `tofu plan/apply` (infra changes) and Lambda code deploys
+- `pow-predictor` — scoped, runs S3/CloudFront deploys (`/deploy` skill)
+
+### IMPORTANT: Lambda deploys require `tennis-bot` profile
+
+The `pow-predictor` IAM user does NOT have `lambda:UpdateFunctionCode` permission. Use `tennis-bot` profile when deploying Lambda code changes:
+```bash
+aws lambda update-function-code --function-name pow-predictor-conditions-summary \
+  --zip-file fileb://path/to/zip --profile tennis-bot --region eu-north-1
+```
+**WARNING:** Each Lambda is a separate zip — do NOT deploy `conditions_summary.py` to the NVE proxy function or vice versa. This will break weather fetching in production.
 
 ```bash
 cd infra
