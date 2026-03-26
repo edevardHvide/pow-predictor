@@ -19,7 +19,25 @@ Build the Vite app and deploy to S3 with CloudFront cache invalidation.
 
 ## Steps
 
-### 1. Build
+### 1. Commit Pending Changes
+
+Before deploying, commit all staged and unstaged changes. Review the diff, write a descriptive commit message, and commit. If there are no changes, skip this step.
+
+### 2. Bump Version
+
+Bump the patch version in `package.json` using `npm version patch --no-git-tag-version`. This increments the version (e.g. `0.0.1` → `0.0.2`) which is displayed in the UI via `__APP_VERSION__` (defined in `vite.config.ts`, shown in `ControlPanel.tsx`).
+
+```bash
+cd /Users/edevard/pow-predictor && npm version patch --no-git-tag-version
+```
+
+Then commit the version bump:
+
+```bash
+git add package.json package-lock.json && git commit -m "chore: bump version to $(node -p 'require(\"./package.json\").version')"
+```
+
+### 3. Build
 
 ```bash
 cd /Users/edevard/pow-predictor && npm run build
@@ -27,7 +45,7 @@ cd /Users/edevard/pow-predictor && npm run build
 
 Verify the build succeeds (TypeScript + Vite). Output goes to `dist/`.
 
-### 2. Sync to S3
+### 4. Sync to S3
 
 ```bash
 aws s3 sync dist/ s3://pow-predictor-frontend \
@@ -38,7 +56,7 @@ aws s3 sync dist/ s3://pow-predictor-frontend \
 
 The `--delete` flag removes files from S3 that are no longer in `dist/`.
 
-### 3. Invalidate CloudFront Cache
+### 5. Invalidate CloudFront Cache
 
 ```bash
 aws cloudfront create-invalidation \
@@ -48,13 +66,13 @@ aws cloudfront create-invalidation \
   --query 'Invalidation.Status' --output text
 ```
 
-### 4. Confirm
+### 6. Confirm
 
 Report the deployment URL: `https://d1y1xbjzzgjck0.cloudfront.net`
 
 Note: CloudFront invalidation takes 1-2 minutes to propagate. The site will show old content until propagation completes.
 
-### 5. Update README if needed
+### 7. Update README if needed
 
 If features were added or changed, update `README.md` to reflect the current state. Key sections to check:
 - Features list

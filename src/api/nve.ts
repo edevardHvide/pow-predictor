@@ -21,6 +21,7 @@ export interface WeatherStation {
   precip: number[];
   windSpeed: number[];
   windDir: number[];
+  cloudCover?: number[]; // 0-100%, from MET only
 }
 
 export interface SpatialWeatherTimeSeries {
@@ -383,6 +384,7 @@ export async function fetchSpatialWeather(
       precip: [...nveSt.precip.slice(0, nveKeepLen), ...bestMet.precip.slice(metStartIdx, metStartIdx + metKeepLen)],
       windSpeed: [...nveSt.windSpeed.slice(0, nveKeepLen), ...bestMet.windSpeed.slice(metStartIdx, metStartIdx + metKeepLen)],
       windDir: [...nveSt.windDir.slice(0, nveKeepLen), ...bestMet.windDir.slice(metStartIdx, metStartIdx + metKeepLen)],
+      cloudCover: [...new Array(nveKeepLen).fill(50), ...(bestMet.cloudCover ?? []).slice(metStartIdx, metStartIdx + metKeepLen)],
     });
   }
 

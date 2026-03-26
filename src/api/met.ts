@@ -15,6 +15,7 @@ interface MetTimeseries {
         air_temperature: number;
         wind_speed: number;
         wind_from_direction: number;
+        cloud_area_fraction?: number;
       };
     };
     next_1_hours?: { details: { precipitation_amount: number } };
@@ -58,8 +59,8 @@ async function fetchMetPoint(
  */
 function resampleTo3h(
   timeseries: MetTimeseries[],
-): { timestamps: Date[]; temp: number[]; precip: number[]; windSpeed: number[]; windDir: number[] } {
-  if (timeseries.length === 0) return { timestamps: [], temp: [], precip: [], windSpeed: [], windDir: [] };
+): { timestamps: Date[]; temp: number[]; precip: number[]; windSpeed: number[]; windDir: number[]; cloudCover: number[] } {
+  if (timeseries.length === 0) return { timestamps: [], temp: [], precip: [], windSpeed: [], windDir: [], cloudCover: [] };
 
   const startTime = new Date(timeseries[0].time).getTime();
   const endTime = new Date(timeseries[timeseries.length - 1].time).getTime();
@@ -70,6 +71,7 @@ function resampleTo3h(
   const precip: number[] = [];
   const windSpeed: number[] = [];
   const windDir: number[] = [];
+  const cloudCover: number[] = [];
 
   // Build lookup: time -> entry
   const byTime = new Map<number, MetTimeseries>();
@@ -98,6 +100,7 @@ function resampleTo3h(
     temp.push(d.air_temperature);
     windSpeed.push(d.wind_speed);
     windDir.push(d.wind_from_direction);
+    cloudCover.push(d.cloud_area_fraction ?? 50);
 
     // Precip: prefer 1h (sum 3), else use 6h (÷2 for 3h portion)
     const p1h = best.data.next_1_hours?.details?.precipitation_amount;
@@ -118,7 +121,7 @@ function resampleTo3h(
     }
   }
 
-  return { timestamps, temp, precip, windSpeed, windDir };
+  return { timestamps, temp, precip, windSpeed, windDir, cloudCover };
 }
 
 /**
@@ -170,6 +173,7 @@ export async function fetchMetForecastGrid(
       precip: resampled.precip.slice(0, len),
       windSpeed: resampled.windSpeed.slice(0, len),
       windDir: resampled.windDir.slice(0, len),
+      cloudCover: resampled.cloudCover.slice(0, len),
     });
   }
 
@@ -181,6 +185,7 @@ export async function fetchMetForecastGrid(
     s.precip = s.precip.slice(0, minLen);
     s.windSpeed = s.windSpeed.slice(0, minLen);
     s.windDir = s.windDir.slice(0, minLen);
+    if (s.cloudCover) s.cloudCover = s.cloudCover.slice(0, minLen);
   }
 
   console.log(`MET forecast: ${stations.length} stations, ${timestamps.length} timesteps (3h), altitudes: ${stations.map(s => s.altitude + 'm').join(', ')}`);

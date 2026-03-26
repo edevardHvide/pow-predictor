@@ -26,6 +26,61 @@ import DevCoefficientPanel from "./components/DevCoefficientPanel.tsx";
 import { useDevMode } from "./hooks/useDevMode.ts";
 import type { CoefficientsOverride } from "./simulation/coefficients.ts";
 
+/** IDW-interpolate weather from spatial stations at a single point */
+function interpolateWeather(
+  weather: SpatialWeatherTimeSeries, lat: number, lng: number, elevation: number,
+): { temp: number; precip: number; windSpeed: number; windDir: number; cloudCover: number } | null {
+  const { stations, timestamps } = weather;
+  if (stations.length === 0 || timestamps.length === 0) return null;
+
+  // Find timestamp closest to now
+  const nowMs = Date.now();
+  let dataIdx = 0;
+  let bestDiff = Math.abs(timestamps[0].getTime() - nowMs);
+  for (let i = 1; i < timestamps.length; i++) {
+    const diff = Math.abs(timestamps[i].getTime() - nowMs);
+    if (diff < bestDiff) { bestDiff = diff; dataIdx = i; }
+  }
+
+  if (stations.length === 1) {
+    const s = stations[0];
+    return { temp: s.temp[dataIdx], precip: s.precip[dataIdx], windSpeed: s.windSpeed[dataIdx], windDir: s.windDir[dataIdx], cloudCover: s.cloudCover?.[dataIdx] ?? 50 };
+  }
+
+  let totalW = 0, wTemp = 0, wPrecip = 0, wWindSpeed = 0, wCloud = 0, sinSum = 0, cosSum = 0;
+  for (const s of stations) {
+    const dlat = lat - s.lat;
+    const dlng = (lng - s.lng) * Math.cos(lat * Math.PI / 180);
+    const dist2 = dlat * dlat + dlng * dlng;
+    const w = dist2 < 1e-10 ? 1e10 : 1 / dist2;
+    totalW += w;
+    wTemp += s.temp[dataIdx] * w;
+    wPrecip += s.precip[dataIdx] * w;
+    wWindSpeed += s.windSpeed[dataIdx] * w;
+    wCloud += (s.cloudCover?.[dataIdx] ?? 50) * w;
+    const rad = s.windDir[dataIdx] * Math.PI / 180;
+    sinSum += Math.sin(rad) * w;
+    cosSum += Math.cos(rad) * w;
+  }
+
+  // Lapse rate correction
+  let refAlt = 0;
+  for (const s of stations) {
+    const dlat = lat - s.lat;
+    const dlng = (lng - s.lng) * Math.cos(lat * Math.PI / 180);
+    const d2 = dlat * dlat + dlng * dlng;
+    refAlt += s.altitude * ((d2 < 1e-10 ? 1e10 : 1 / d2) / totalW);
+  }
+
+  return {
+    temp: wTemp / totalW + (elevation - refAlt) * (-6.5 / 1000),
+    precip: wPrecip / totalW,
+    windSpeed: wWindSpeed / totalW,
+    windDir: ((Math.atan2(sinSum / totalW, cosSum / totalW) * 180 / Math.PI) + 360) % 360,
+    cloudCover: wCloud / totalW,
+  };
+}
+
 export default function App() {
   const [region, setRegion] = useState(REGIONS[0]);
   const [params, setParams] = useState<WindParams>({
@@ -54,8 +109,11 @@ export default function App() {
     lat: number; lng: number; depthCm: number;
     screenX: number; screenY: number;
     temp?: number; precip?: number; windSpeed?: number; windDir?: number;
-    elevation?: number;
+    cloudCover?: number; elevation?: number;
   } | null>(null);
+
+  // Triggers re-render when weather becomes available (for exploration tooltip)
+  const [weatherReady, setWeatherReady] = useState(0);
 
   // Conditions analysis state
   const [conditionsSummary, setConditionsSummary] = useState<ConditionsSummary | null>(null);
@@ -262,7 +320,7 @@ export default function App() {
     const latSpan = 0.2;
     const cosLat = Math.max(Math.cos((lat * Math.PI) / 180), 0.3);
     const lngSpan = Math.min(0.5 / cosLat, 0.6);
-    prefetchRef.current = fetchSpatialWeather(
+    const promise = fetchSpatialWeather(
       lat, lng,
       lng - lngSpan / 2, lat - latSpan / 2,
       lng + lngSpan / 2, lat + latSpan / 2,
@@ -274,7 +332,22 @@ export default function App() {
         }
       },
     );
+    prefetchRef.current = promise;
+    // Store weather for exploration mode tooltip as soon as it arrives
+    promise.then((weather) => {
+      backgroundWeatherRef.current = weather;
+      // Signal that weather is available — backfills open tooltip
+      setWeatherReady((n) => n + 1);
+    }).catch(() => {});
   }, []);
+
+  // Preload weather for the initial region so exploration clicks have data immediately
+  useEffect(() => {
+    const { bbox } = region;
+    const centerLat = (bbox.south + bbox.north) / 2;
+    const centerLng = (bbox.west + bbox.east) / 2;
+    startPrefetch(centerLat, centerLng);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Enter selection mode for historical simulation
   // If user already searched a mountain, skip selection and go straight to confirm
@@ -419,59 +492,8 @@ export default function App() {
     // Default mode: show elevation + current weather, no depth
     if (!historicalMode || !historicalSim.steps) {
       const weather = backgroundWeatherRef.current;
-      let temp: number | undefined;
-      let precip: number | undefined;
-      let windSpeed: number | undefined;
-      let windDir: number | undefined;
-
-      if (weather && weather.stations.length > 0) {
-        // Use the most recent timestamp as "current"
-        const dataIdx = weather.timestamps.length - 1;
-        const stations = weather.stations;
-
-        if (stations.length === 1) {
-          temp = stations[0].temp[dataIdx];
-          precip = stations[0].precip[dataIdx];
-          windSpeed = stations[0].windSpeed[dataIdx];
-          windDir = stations[0].windDir[dataIdx];
-        } else {
-          let totalW = 0;
-          let wTemp = 0, wPrecip = 0, wWindSpeed = 0;
-          let sinSum = 0, cosSum = 0;
-
-          for (const s of stations) {
-            const dlat = lat - s.lat;
-            const dlng = (lng - s.lng) * Math.cos(lat * Math.PI / 180);
-            const dist2 = dlat * dlat + dlng * dlng;
-            const w = dist2 < 1e-10 ? 1e10 : 1 / dist2;
-            totalW += w;
-            wTemp += s.temp[dataIdx] * w;
-            wPrecip += s.precip[dataIdx] * w;
-            wWindSpeed += s.windSpeed[dataIdx] * w;
-            const rad = s.windDir[dataIdx] * Math.PI / 180;
-            sinSum += Math.sin(rad) * w;
-            cosSum += Math.cos(rad) * w;
-          }
-
-          temp = wTemp / totalW;
-          precip = wPrecip / totalW;
-          windSpeed = wWindSpeed / totalW;
-          windDir = ((Math.atan2(sinSum / totalW, cosSum / totalW) * 180 / Math.PI) + 360) % 360;
-
-          // Lapse rate correction
-          let refAlt = 0;
-          for (const s of stations) {
-            const dlat2 = lat - s.lat;
-            const dlng2 = (lng - s.lng) * Math.cos(lat * Math.PI / 180);
-            const d2 = dlat2 * dlat2 + dlng2 * dlng2;
-            const w2 = d2 < 1e-10 ? 1e10 : 1 / d2;
-            refAlt += s.altitude * (w2 / totalW);
-          }
-          temp += (elevation - refAlt) * (-6.5 / 1000);
-        }
-      }
-
-      setDepthProbe({ lat, lng, depthCm: -1, screenX, screenY, elevation, temp, precip, windSpeed, windDir });
+      const wx = weather ? interpolateWeather(weather, lat, lng, elevation) : null;
+      setDepthProbe({ lat, lng, depthCm: -1, screenX, screenY, elevation, temp: wx?.temp, precip: wx?.precip, windSpeed: wx?.windSpeed, windDir: wx?.windDir, cloudCover: wx?.cloudCover });
       return;
     }
 
@@ -546,6 +568,16 @@ export default function App() {
 
     setDepthProbe({ lat, lng, depthCm, screenX, screenY, temp, precip, windSpeed, windDir, elevation });
   }, [historicalMode, historicalSim.steps, historicalSim.currentStep, terrainRef]);
+
+  // Backfill weather into open tooltip when weather arrives after click
+  useEffect(() => {
+    const weather = backgroundWeatherRef.current;
+    if (!weather || !depthProbe || depthProbe.temp !== undefined || depthProbe.depthCm >= 0) return;
+    const result = interpolateWeather(weather, depthProbe.lat, depthProbe.lng, depthProbe.elevation ?? 0);
+    if (result) {
+      setDepthProbe((prev) => prev && prev.temp === undefined ? { ...prev, ...result } : prev);
+    }
+  }, [depthProbe, weatherReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnalyze = useCallback(async () => {
     if (!depthProbe || !terrainRef.current) return;
@@ -799,6 +831,7 @@ export default function App() {
           precip={depthProbe.precip}
           windSpeed={depthProbe.windSpeed}
           windDir={depthProbe.windDir}
+          cloudCover={depthProbe.cloudCover}
           elevation={depthProbe.elevation}
           onClose={() => setDepthProbe(null)}
           onAnalyze={handleAnalyze}
