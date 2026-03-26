@@ -744,11 +744,11 @@ export default function App() {
 
       {/* Floating simulate button — mobile: below search bar, desktop: top center */}
       {searchedMountain && !historicalMode && !selectionMode && !showConfirmDialog && !displayProgress && (
-        <div className="absolute top-[4.25rem] md:top-4 left-3 right-14 md:left-1/2 md:right-auto md:-translate-x-1/2 z-20 flex justify-center safe-area-top animate-fade-in-up" key={searchedMountain.name + searchedMountain.lat}>
+        <div className="absolute top-[4.25rem] md:top-4 left-3 md:left-1/2 md:right-auto md:-translate-x-1/2 z-10 md:z-20 flex safe-area-top animate-fade-in-up pointer-events-none" key={searchedMountain.name + searchedMountain.lat}>
           <button
             onClick={enterHistoricalMode}
             disabled={historicalSim.loading}
-            className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 active:from-emerald-400 active:to-emerald-500 disabled:from-slate-600 disabled:to-slate-700 disabled:text-slate-400 text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-lg shadow-emerald-900/40 transition-all active:scale-95"
+            className="pointer-events-auto bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 active:from-emerald-400 active:to-emerald-500 disabled:from-slate-600 disabled:to-slate-700 disabled:text-slate-400 text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-lg shadow-emerald-900/40 transition-all active:scale-95"
           >
             {historicalSim.loading ? "Loading..." : "Simulate"}
           </button>

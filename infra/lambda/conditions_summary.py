@@ -47,24 +47,48 @@ def build_user_message(body):
         parts.append(f"\n{len(obs)} field observations (sorted by relevance):\n")
         for i, o in enumerate(obs[:25]):
             r = o["observation"]["registrations"]
+            nick = o["observation"].get("nickName", "")
             reg_parts = []
-            if r.get("driftObs"):
-                reg_parts.append(f"Drift: {r['driftObs']['driftCategory']}")
-                if r["driftObs"].get("comment"):
-                    reg_parts.append(f"({r['driftObs']['comment'][:100]})")
             if r.get("snowSurface"):
-                reg_parts.append(f"Surface: {r['snowSurface']['surfaceType']}")
+                s = r["snowSurface"]
+                reg_parts.append(f"Surface: {s['surfaceType']}")
+                if s.get("driftName"):
+                    reg_parts.append(f"Drift: {s['driftName']}")
+                if s.get("comment"):
+                    reg_parts.append(f"({s['comment'][:100]})")
             if r.get("dangerSigns"):
                 reg_parts.append(f"Danger signs: {', '.join(r['dangerSigns']['signs'][:5])}")
+            if r.get("avalancheObs"):
+                a = r["avalancheObs"]
+                reg_parts.append(f"Avalanche: {a['type']}, size {a['size']}, trigger: {a['trigger']}")
             if r.get("avalancheActivity"):
-                reg_parts.append(f"Avalanche: {r['avalancheActivity']['type']}, trigger: {r['avalancheActivity']['trigger']}")
+                for ae in r["avalancheActivity"].get("entries", [])[:3]:
+                    reg_parts.append(f"Activity: {ae['type']}, {ae['size']}, trigger: {ae['trigger']}")
+            if r.get("avalancheEval"):
+                ev = r["avalancheEval"]
+                reg_parts.append(f"Danger: {ev['dangerLevel']}")
+                if ev.get("evaluation"):
+                    reg_parts.append(f"Eval: {ev['evaluation'][:150]}")
+            if r.get("weather"):
+                w = r["weather"]
+                wx = []
+                if w.get("temp") is not None:
+                    wx.append(f"{w['temp']}°C")
+                if w.get("precipName"):
+                    wx.append(w["precipName"])
+                if w.get("windDirName") or w.get("windSpeedName"):
+                    wx.append(f"wind {w.get('windDirName', '')} {w.get('windSpeedName', '')}".strip())
+                if wx:
+                    reg_parts.append(f"Weather: {', '.join(wx)}")
+            if r.get("general") and r["general"].get("comment"):
+                reg_parts.append(f"Note: {r['general']['comment'][:120]}")
 
             parts.append(
                 f"  {i+1}. relevance={o['relevance']:.2f}, "
                 f"dist={o['distanceKm']:.1f}km, "
                 f"elev_diff={o['elevationDiff']:.0f}m, "
-                f"{o['hoursAgo']:.0f}h ago, "
-                f"competency={o['observation']['competencyLevel']}/5"
+                f"{o['hoursAgo']:.0f}h ago"
+                + (f", observer={nick}" if nick else "")
                 + (f" | {' | '.join(reg_parts)}" if reg_parts else " | (no snow registrations)")
             )
     else:

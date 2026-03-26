@@ -26,7 +26,7 @@ export default function WelcomePage() {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      className="fixed inset-0 z-[9999] flex items-center justify-center pt-[env(safe-area-inset-top,0px)]"
       style={{
         opacity: stage === "ready" ? 1 : 0,
         transition: "opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1)",

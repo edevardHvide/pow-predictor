@@ -3,6 +3,8 @@ import {
   Viewer,
   createWorldTerrainAsync,
   Cartesian3,
+  BoundingSphere,
+  HeadingPitchRange,
   Math as CesiumMath,
   type CesiumTerrainProvider,
 } from "cesium";
@@ -60,19 +62,24 @@ export function useCesium(containerRef: React.RefObject<HTMLDivElement | null>, 
     (r: TerrainRegion) => {
       const viewer = viewerRef.current;
       if (!viewer || viewer.isDestroyed()) return;
-      viewer.camera.flyTo({
-        destination: Cartesian3.fromDegrees(
-          r.cameraPosition.lng,
-          r.cameraPosition.lat,
-          r.cameraPosition.height,
+      viewer.camera.flyToBoundingSphere(
+        new BoundingSphere(
+          Cartesian3.fromDegrees(
+            r.cameraPosition.lng,
+            r.cameraPosition.lat,
+            r.cameraPosition.height,
+          ),
+          0,
         ),
-        orientation: {
-          heading: CesiumMath.toRadians(r.cameraHeading),
-          pitch: CesiumMath.toRadians(r.cameraPitch),
-          roll: 0,
+        {
+          offset: new HeadingPitchRange(
+            CesiumMath.toRadians(r.cameraHeading),
+            CesiumMath.toRadians(r.cameraPitch),
+            12000,
+          ),
+          duration: 2,
         },
-        duration: 2,
-      });
+      );
     },
     [],
   );

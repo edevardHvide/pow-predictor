@@ -26,6 +26,7 @@ Single-page React app with Web Worker computation (no backend for simulation):
 - **Frontend:** React 19, TypeScript 5.9, Vite 8, Tailwind CSS 4
 - **3D:** CesiumJS 1.139 + vite-plugin-cesium
 - **Weather API:** NVE GridTimeSeries (proxied through Vite dev server to avoid CORS)
+- **Observations:** RegObs v5/Search API (snow observations, avalanche reports)
 - **Search:** Kartverket Stedsnavn API (all place types in Norway)
 - **Runs locally** — `npm run dev` on http://localhost:5173
 
@@ -169,6 +170,37 @@ Custom 2D canvas overlay (`wind-layer-adapter.ts`), NOT cesium-wind-layer librar
 
 The `cesium-wind-layer` npm package uses `Cesium.defaultValue` removed from public API in Cesium 1.139. Replaced with custom canvas overlay.
 
+## RegObs API (v5/Search)
+
+Field observations (snow surface, avalanche activity, danger signs, weather) fetched from RegObs.
+
+### IMPORTANT: v5/Search does NOT support lat/lng geo-filtering
+
+The `Latitude`, `Longitude`, and `Radius` fields in the request body are **silently ignored**. The API returns results from all of Norway regardless. Use `SelectedRegions` with NVE forecast region IDs instead (e.g., `3010` = Lyngen). The `findRegionIds()` function in `regobs.ts` maps lat/lng to the nearest region(s).
+
+### IMPORTANT: v5 response structure
+
+The v5 response uses **top-level fields** per observation type, NOT `Registrations[].FullObject`:
+- `SnowSurfaceObservation` — surface type, drift name
+- `WeatherObservation` — temp, precip, wind, cloud cover
+- `AvalancheEvaluation3` — danger level, evaluation text, development
+- `AvalancheObs` — single avalanche event (size, trigger, type)
+- `AvalancheActivityObs2[]` — multiple observed avalanche events
+- `DangerObs[]` — danger sign observations
+- `GeneralObservation` — free-text notes
+- `Observer.CompetenceLevelTID` (not `CompetencyLevel`)
+
+### Key region IDs
+
+| ID | Region | Approx center |
+|----|--------|---------------|
+| 3010 | Lyngen | 69.6°N, 20.1°E |
+| 3011 | Tromsø | 69.6°N, 19.0°E |
+| 3014 | Lofoten og Vesterålen | 68.3°N, 15.0°E |
+| 3015 | Ofoten | 68.4°N, 17.0°E |
+
+Full list in `FORECAST_REGIONS` array in `src/api/regobs.ts`.
+
 ## Powder Zone Detection
 
 Powder survives where: cold (<-2C), low wind (<70% of threshold), sheltered terrain (positive Sx), NOT wind-loaded (depth < 1.15x base). Wind-deposited lee slopes are dense **wind slab**, not powder. This is the inverted logic from the original implementation which incorrectly marked lee deposition as powder.
@@ -199,6 +231,7 @@ Responsive design using Tailwind `md:` breakpoint (768px):
 - `createWorldTerrainAsync()` is async — guard against unmount with `destroyed` flag.
 - To pass Cesium viewer to React components that need re-renders (e.g. compass), store it in state AND ref. Ref alone won't trigger re-render.
 - Cesium labels: use native font size at `scale: 1.0`. Large font + small scale (e.g. `52px` at `scale: 0.25`) renders blurry because Cesium rasterizes the text then downscales the bitmap.
+- **Camera centering:** Use `camera.flyToBoundingSphere` (not `camera.flyTo`) when flying to a target point. `flyTo` positions the camera and looks in a fixed direction — the target drifts off-center with varying terrain heights. `flyToBoundingSphere` centers the target in the viewport.
 
 ## Water Masking
 

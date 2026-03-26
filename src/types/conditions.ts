@@ -6,12 +6,15 @@ export interface RegObsObservation {
   timestamp: string; // ISO 8601
   competencyLevel: number; // 1-5
   elevation?: number;
+  nickName?: string;
   registrations: {
-    driftObs?: { driftCategory: string; comment?: string };
-    snowSurface?: { surfaceType: string; comment?: string };
+    snowSurface?: { surfaceType: string; driftName?: string; comment?: string };
     dangerSigns?: { signs: string[]; comment?: string };
-    avalancheActivity?: { type: string; trigger: string; comment?: string };
-    weather?: { comment?: string };
+    avalancheObs?: { size: string; trigger: string; type: string; comment?: string };
+    avalancheActivity?: { entries: { type: string; trigger: string; size: string }[] };
+    avalancheEval?: { dangerLevel: string; evaluation?: string; development?: string; forecastComment?: string };
+    weather?: { temp?: number; precipName?: string; windSpeedName?: string; windDirName?: string; cloudCoverName?: string; comment?: string };
+    general?: { comment?: string };
   };
 }
 
