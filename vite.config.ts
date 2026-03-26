@@ -19,6 +19,10 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/nve/, "/api"),
       },
+      "/api/conditions-summary": {
+        target: "https://1uv0uf8m0g.execute-api.eu-north-1.amazonaws.com",
+        changeOrigin: true,
+      },
     },
   },
 });
