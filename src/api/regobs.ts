@@ -49,9 +49,11 @@ function findRegionIds(lat: number, lng: number): number[] {
     return { id: r.id, dist: Math.sqrt(dLat * dLat + dLng * dLng) };
   }).sort((a, b) => a.dist - b.dist);
 
-  // Always include closest region; include second if it's within 1.5 degrees
+  // Always include closest; include nearby regions within 1.5 degrees (up to 3 total)
   const ids = [scored[0].id];
-  if (scored[1].dist < 1.5) ids.push(scored[1].id);
+  for (let i = 1; i < scored.length && ids.length < 3; i++) {
+    if (scored[i].dist < 1.5) ids.push(scored[i].id);
+  }
   return ids;
 }
 

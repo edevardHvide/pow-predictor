@@ -62,19 +62,19 @@ export function scoreObservation(
   obsAspect: number | null, // null if outside grid
   obsElevation: number,
   now: Date,
-  minRelevance: number = 0.05,
+  minRelevance: number = 0.01,
 ): ScoredObservation | null {
   const dist = distanceKm(point.lat, point.lng, obs.lat, obs.lng);
   const elevDiff = Math.abs(point.elevation - obsElevation);
   const hoursAgo = (now.getTime() - new Date(obs.timestamp).getTime()) / (1000 * 60 * 60);
 
-  const aScore = obsAspect !== null ? aspectScore(point.aspect, obsAspect) : 0.5;
-  const eScore = gaussianDecay(elevDiff, 300);
+  const aScore = obsAspect !== null ? aspectScore(point.aspect, obsAspect) : 0.7;
+  const eScore = gaussianDecay(elevDiff, 500);
   const rScore = recencyScore(hoursAgo);
-  const pScore = gaussianDecay(dist, 15);
+  const pScore = gaussianDecay(dist, 30);
 
-  // Combined: aspect^1.5 * elevation^1.2 * recency^1.0 * proximity^0.7
-  const relevance = Math.pow(aScore, 1.5) * Math.pow(eScore, 1.2) * rScore * Math.pow(pScore, 0.7);
+  // Combined: aspect * elevation * recency * proximity (moderate exponents)
+  const relevance = Math.pow(aScore, 1.0) * Math.pow(eScore, 0.8) * rScore * Math.pow(pScore, 0.5);
 
   if (relevance < minRelevance) return null;
 
