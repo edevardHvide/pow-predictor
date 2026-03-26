@@ -106,7 +106,7 @@ export default function WelcomePage() {
               Two ways to explore
             </h2>
 
-            {/* Manual mode */}
+            {/* Exploration mode */}
             <div
               className="rounded-xl p-4"
               style={{
@@ -121,13 +121,13 @@ export default function WelcomePage() {
                     <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
                   </svg>
                 </div>
-                <span className="text-sm font-medium text-sky-200">Manual Mode</span>
+                <span className="text-sm font-medium text-sky-200">Exploration Mode</span>
                 <span className="text-[10px] text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full ml-auto">default</span>
               </div>
               <p className="text-xs text-slate-400 font-light leading-relaxed pl-[34px]">
-                Adjust wind direction, speed, and temperature with the control panel.
-                The simulation updates live — drag the compass to change wind direction
-                and watch snow redistribute in real time.
+                Click anywhere on the terrain to see current weather conditions
+                and analyze field observations. Adjust wind direction, speed, and
+                temperature to see snow redistribute in real time.
               </p>
             </div>
 

@@ -68,8 +68,8 @@ export default function SnowDepthTooltip({
               </p>
             </>
           ) : (
-            <p className="text-sm font-medium text-slate-300">
-              Terrain point
+            <p className="text-xs text-slate-400 font-light">
+              Current weather
             </p>
           )}
 
