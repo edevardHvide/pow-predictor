@@ -18,6 +18,8 @@ interface SnowDepthTooltipProps {
   analysisLoading?: boolean;
   analysisError?: string | null;
   summary?: ConditionsSummary | null;
+  // Simulation
+  onSimulate?: () => void;
 }
 
 function windDirLabel(deg: number): string {
@@ -53,6 +55,7 @@ export default function SnowDepthTooltip({
   analysisLoading,
   analysisError,
   summary,
+  onSimulate,
 }: SnowDepthTooltipProps) {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768 && "ontouchstart" in window;
 
@@ -127,15 +130,27 @@ export default function SnowDepthTooltip({
               )}
             </div>
 
-            {showAnalyzeButton && (
+            {(showAnalyzeButton || onSimulate) && !analysisLoading && !analysisError && !summary && (
               <>
                 <div className="h-px bg-slate-700/50 my-2" />
-                <button
-                  onClick={onAnalyze}
-                  className="w-full text-sm text-sky-400 active:text-sky-300 active:bg-sky-400/10 rounded px-2 py-2 transition-colors text-center"
-                >
-                  Analyze with RegObs + AI
-                </button>
+                <div className="flex gap-2">
+                  {showAnalyzeButton && (
+                    <button
+                      onClick={onAnalyze}
+                      className="flex-1 text-xs text-sky-400 active:text-sky-300 active:bg-sky-400/10 border border-sky-400/25 rounded-lg px-2 py-2 transition-colors text-center"
+                    >
+                      Analyze RegObs
+                    </button>
+                  )}
+                  {onSimulate && (
+                    <button
+                      onClick={onSimulate}
+                      className="flex-1 text-xs text-emerald-400 active:text-emerald-300 active:bg-emerald-400/10 border border-emerald-400/25 rounded-lg px-2 py-2 transition-colors text-center"
+                    >
+                      Run Simulation
+                    </button>
+                  )}
+                </div>
               </>
             )}
 
@@ -274,16 +289,28 @@ export default function SnowDepthTooltip({
             )}
           </div>
 
-          {/* Analyze conditions button */}
-          {showAnalyzeButton && (
+          {/* Action buttons */}
+          {(showAnalyzeButton || onSimulate) && !analysisLoading && !analysisError && !summary && (
             <>
               <div className="h-px bg-slate-700/50 my-2" />
-              <button
-                onClick={onAnalyze}
-                className="w-full text-xs text-sky-400 hover:text-sky-300 hover:bg-sky-400/10 rounded px-2 py-1.5 transition-colors text-center"
-              >
-                Analyze with RegObs + AI
-              </button>
+              <div className="flex gap-2">
+                {showAnalyzeButton && (
+                  <button
+                    onClick={onAnalyze}
+                    className="flex-1 text-[11px] text-sky-400 hover:text-sky-300 hover:bg-sky-400/10 border border-sky-400/25 rounded-lg px-2 py-1.5 transition-colors text-center"
+                  >
+                    Analyze RegObs
+                  </button>
+                )}
+                {onSimulate && (
+                  <button
+                    onClick={onSimulate}
+                    className="flex-1 text-[11px] text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10 border border-emerald-400/25 rounded-lg px-2 py-1.5 transition-colors text-center"
+                  >
+                    Run Simulation
+                  </button>
+                )}
+              </div>
             </>
           )}
 

@@ -8,6 +8,7 @@ import MapCompass from "./components/MapCompass.tsx";
 import ScaleBar from "./components/ScaleBar.tsx";
 import TimelineBar from "./components/TimelineBar.tsx";
 import WelcomePage from "./components/WelcomePage.tsx";
+import InstallBanner from "./components/InstallBanner.tsx";
 import { REGIONS, regionFromCoordinates } from "./simulation/regions.ts";
 import type { PlaceResult } from "./api/kartverket.ts";
 import { fetchSpatialWeather, type SpatialWeatherTimeSeries, API_GATEWAY_URL } from "./api/nve.ts";
@@ -645,6 +646,7 @@ export default function App() {
   return (
     <div className="relative w-full h-full">
       <WelcomePage />
+      <InstallBanner />
       <CesiumErrorBoundary>
         <CesiumViewer
           region={region}
@@ -705,19 +707,6 @@ export default function App() {
         onHistoricalMode={enterHistoricalMode}
         onExitHistorical={exitHistoricalMode}
       />
-
-      {/* Floating simulate button — mobile: below search bar, desktop: top center */}
-      {searchedMountain && !historicalMode && !selectionMode && !showConfirmDialog && !displayProgress && (
-        <div className="absolute top-[4.25rem] md:top-4 left-3 md:left-1/2 md:right-auto md:-translate-x-1/2 z-10 md:z-20 flex safe-area-top animate-fade-in-up pointer-events-none" key={searchedMountain.name + searchedMountain.lat}>
-          <button
-            onClick={enterHistoricalMode}
-            disabled={historicalSim.loading}
-            className="pointer-events-auto bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 active:from-emerald-400 active:to-emerald-500 disabled:from-slate-600 disabled:to-slate-700 disabled:text-slate-400 text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-lg shadow-emerald-900/40 transition-all active:scale-95"
-          >
-            {historicalSim.loading ? "Loading..." : "Simulate"}
-          </button>
-        </div>
-      )}
 
       {/* Selection mode banner */}
       {selectionMode && !showConfirmDialog && !displayProgress && (
@@ -802,6 +791,7 @@ export default function App() {
           analysisLoading={analysisLoading}
           analysisError={analysisError}
           summary={conditionsSummary}
+          onSimulate={!historicalMode && terrainReady ? () => { setDepthProbe(null); enterHistoricalMode(); } : undefined}
         />
       )}
 
