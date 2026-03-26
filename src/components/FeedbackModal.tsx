@@ -18,6 +18,7 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
   const [type, setType] = useState<FeedbackType>("feature");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -51,6 +52,7 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
     const issueTitle = `${prefix} ${title.trim()}`;
     const issueBody = [
       body.trim(),
+      email.trim() ? `\n**Contact:** ${email.trim()}` : "",
       "",
       "---",
       `*Submitted from Pow Predictor v${__APP_VERSION__}*`,
@@ -71,6 +73,7 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
         setResult({ ok: true });
         setTitle("");
         setBody("");
+        setEmail("");
         setTimeout(onClose, 2000);
       } else {
         setResult({ ok: false, error: `Something went wrong (${res.status}). Please try again.` });
@@ -172,7 +175,16 @@ export default function FeedbackModal({ open, onClose }: FeedbackModalProps) {
               onChange={(e) => setBody(e.target.value)}
               placeholder="Details (optional)"
               rows={3}
-              className="w-full bg-slate-800/60 border border-slate-600/30 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/20 transition-all resize-none mb-3"
+              className="w-full bg-slate-800/60 border border-slate-600/30 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/20 transition-all resize-none mb-2"
+            />
+
+            {/* Email (optional) */}
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email (optional, for follow-up)"
+              className="w-full bg-slate-800/60 border border-slate-600/30 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/20 transition-all mb-3"
             />
 
             {/* Error */}
