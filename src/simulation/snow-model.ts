@@ -55,19 +55,19 @@ function advectSaltation(
 
   const massInTransport = new Float64Array(n);
   const uStarTh = thresholdFrictionVelocity(params.temperature);
-  const windStrength = smoothstep(0, 2, params.speed);
+  const windStrength = smoothstep(0, 12, params.speed);
 
   // Reference max flux for normalization (30 m/s wind)
   const uStarMax = 30 * karman;
   const qRef = uStarMax * (uStarMax * uStarMax - uStarTh * uStarTh);
 
   // Scale factor: maps normalized flux [0,1] to cm of erosion per iteration
-  // At max flux, erode up to ~snowfallCm/4 per iteration (aggressive but bounded)
+  // At max flux, erode up to ~snowfallCm*0.15 per iteration (moderate redistribution)
   // For per-cell snowfall, use mean as reference scale
   const meanFall = isArray
     ? snow.reduce((a, b) => a + b, 0) / Math.max(n, 1)
     : (snowfallCm as number);
-  const erosionScale = meanFall * 0.25;
+  const erosionScale = meanFall * 0.15;
 
   for (let iter = 0; iter < advIter; iter++) {
     // 1. Erosion & deposition per cell
@@ -82,7 +82,7 @@ function advectSaltation(
         const qNorm = clamp((uStar * (uStar * uStar - uStarTh * uStarTh)) / qRef, 0, 1);
         const equilibriumTransport = qNorm * erosionScale;
         const deficit = Math.max(0, equilibriumTransport - massInTransport[i]);
-        const eroded = Math.min(deficit * windStrength, snow[i] * 0.4);
+        const eroded = Math.min(deficit * windStrength, snow[i] * 0.15);
         snow[i] -= eroded;
         massInTransport[i] += eroded;
       }
@@ -139,8 +139,8 @@ function advectSaltation(
       }
     }
 
-    // 3. Sublimation loss during transport (2-5% per iteration)
-    const sublimRate = clamp(0.02 + 0.003 * params.speed, 0, 0.05);
+    // 3. Sublimation loss during transport (1-3% per iteration)
+    const sublimRate = clamp(0.01 + 0.0015 * params.speed, 0, 0.03);
     for (let i = 0; i < n; i++) {
       newTransport[i] *= (1 - sublimRate);
     }

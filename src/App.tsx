@@ -342,10 +342,10 @@ export default function App() {
       return;
     }
 
-    // Free-click: set as simulation point (like searching a mountain)
+    // Free-click: set as simulation point (no pin — pin is only for searched places)
     if (!historicalMode) {
       const name = `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E`;
-      setSearchedMountain({ lat, lng, name });
+      setSearchedMountain(null);
       setTerrainReady(false);
       clearSimulation();
       clearOverlays();
@@ -683,6 +683,7 @@ export default function App() {
             return;
           }
           setSearchedMountain({ lat: m.lat, lng: m.lng, name: m.name });
+          setDepthProbe(null);
           setTerrainReady(false);
           clearSimulation();
           clearOverlays();

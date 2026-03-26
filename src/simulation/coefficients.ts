@@ -20,7 +20,7 @@ export const REF_HEIGHT = 50;
 // ── Snow Model ──────────────────────────────────────────────────────
 
 /** Default snowfall for manual (non-historical) simulation (cm) */
-export const BASE_SNOWFALL_CM = 30;
+export const BASE_SNOWFALL_CM = 50;
 /** Von Karman drag coefficient: u* = surfaceSpeed × this */
 export const KARMAN_DRAG_COEFF = 0.04;
 /** Powder survival: minimum temperature (°C) */

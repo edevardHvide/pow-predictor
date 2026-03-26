@@ -42,7 +42,34 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     else if (msg.type === "run-simulation") {
       if (!terrain) throw new Error("Terrain not initialized");
       const windField = solveWindField(terrain, msg.params, msg.overrides);
-      const snowGrid = computeSnowAccumulation(terrain, windField, msg.params, undefined, msg.overrides);
+
+      // Simulate a 24h storm: spread total snowfall over 8 sub-steps
+      // so redistribution compounds realistically (like historical mode)
+      const EXPLORATION_STEPS = 8;
+      const { rows, cols } = terrain;
+      const cellCount = rows * cols;
+      const totalCm = msg.overrides?.BASE_SNOWFALL_CM ?? 50;
+      const perStepCm = totalCm / EXPLORATION_STEPS;
+      const accumulated = new Float64Array(cellCount);
+
+      for (let step = 0; step < EXPLORATION_STEPS; step++) {
+        // Build uniform per-cell snowfall for this sub-step
+        const cellSnowfall = new Float64Array(cellCount);
+        for (let i = 0; i < cellCount; i++) {
+          if (terrain.heights[i] >= 40) cellSnowfall[i] = perStepCm;
+        }
+        const delta = computeSnowAccumulation(terrain, windField, msg.params, cellSnowfall, msg.overrides);
+        for (let i = 0; i < cellCount; i++) {
+          accumulated[i] += delta.depth[i];
+        }
+      }
+
+      const snowGrid = {
+        depth: accumulated,
+        isPowderZone: new Uint8Array(cellCount),
+        rows,
+        cols,
+      };
 
       self.postMessage({
         type: "simulation-result",
