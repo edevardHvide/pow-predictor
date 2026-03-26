@@ -4,6 +4,7 @@ import type { ElevationGrid } from "../types/terrain.ts";
 import type { WindField, WindParams } from "../types/wind.ts";
 import type { SnowDepthGrid } from "../types/snow.ts";
 import type { WorkerResponse } from "../simulation/worker-protocol.ts";
+import type { CoefficientsOverride } from "../simulation/coefficients.ts";
 
 export interface SimulationState {
   windField: WindField | null;
@@ -91,12 +92,12 @@ export function useSimulation() {
     setState({ windField: null, snowGrid: null, simulating: false });
   }, []);
 
-  const runSimulation = useCallback((params: WindParams) => {
+  const runSimulation = useCallback((params: WindParams, overrides?: CoefficientsOverride) => {
     const worker = workerRef.current;
     if (!worker || !terrainSentRef.current) return;
 
     setState((s) => ({ ...s, simulating: true }));
-    worker.postMessage({ type: "run-simulation", params });
+    worker.postMessage({ type: "run-simulation", params, overrides });
   }, []);
 
   return { state, setTerrain, runSimulation, clearSimulation, terrainRef, workerRef, workerReady };
