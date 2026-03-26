@@ -1,5 +1,10 @@
 # Pow Predictor — Claude Code Guide
 
+## IMPORTANT: AWS Profile Rules
+
+**Default profile: `pow-predictor`** — use for EVERYTHING (logs, S3, CloudFront, Lambda config, API Gateway, all read operations).
+**`tennis-bot`** — ONLY for `tofu plan/apply` and `lambda update-function-code`. Nothing else.
+
 ## Project Overview
 
 3D snow redistribution simulator for alpine terrain. Models how wind transports snow through mountains — scouring ridges and depositing on lee slopes — to predict where powder accumulates after storms.
