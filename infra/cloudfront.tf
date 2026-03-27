@@ -107,10 +107,11 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods         = ["GET", "HEAD"]
     cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6" # CachingOptimized
 
-    function_association {
-      event_type   = "viewer-request"
-      function_arn = aws_cloudfront_function.redirect_default_domain.arn
-    }
+    # CloudFront default domain redirect disabled — SafeZone/ISP DNS blocking powpredictor.info
+    # function_association {
+    #   event_type   = "viewer-request"
+    #   function_arn = aws_cloudfront_function.redirect_default_domain.arn
+    # }
   }
 
   # SPA: route 403/404 to index.html for client-side routing

@@ -15,7 +15,7 @@ LAMBDA_FUNCTIONS = [
     "pow-predictor-frontend-errors",
 ]
 LAMBDA_LOG_GROUPS = [f"/aws/lambda/{fn}" for fn in LAMBDA_FUNCTIONS]
-SITE_URL = "https://powpredictor.info"
+SITE_URL = "https://d1y1xbjzzgjck0.cloudfront.net"
 # Hit API GW root — expect 404 (no route), but proves gateway is up. 5xx or connection error = problem.
 API_GW_URL = "https://1uv0uf8m0g.execute-api.eu-north-1.amazonaws.com/"
 
