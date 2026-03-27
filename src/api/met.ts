@@ -93,7 +93,7 @@ function resampleTo3h(
       }
     }
 
-    if (!best || bestDist > 6 * 3600 * 1000) continue; // skip if gap > 6h
+    if (!best || bestDist > 12 * 3600 * 1000) continue; // skip if gap > 12h (MET switches to 6-hourly after ~2.5 days)
 
     const d = best.data.instant.details;
     timestamps.push(new Date(t));

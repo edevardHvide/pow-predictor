@@ -235,10 +235,23 @@ export default function SnowDepthTooltip({
     );
   }
 
-  const style = {
-    left: `${screenX + 16}px`,
-    top: `${screenY - 40}px`,
-  };
+  const tooltipWidth = 320;
+  const tooltipHeight = 300;
+  const pad = 16;
+  let left = screenX + pad;
+  let top = screenY - 40;
+
+  if (left + tooltipWidth > window.innerWidth - pad) {
+    left = screenX - tooltipWidth - pad;
+  }
+  if (top + tooltipHeight > window.innerHeight - pad) {
+    top = window.innerHeight - tooltipHeight - pad;
+  }
+  if (top < pad) {
+    top = pad;
+  }
+
+  const style = { left: `${left}px`, top: `${top}px` };
 
   return (
     <div
