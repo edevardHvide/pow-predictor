@@ -4,6 +4,39 @@ description: Check Lambda/API health, process GitHub issues, get Telegram approv
 user_invocable: true
 ---
 
+## Phase 1: Evaluate Monitoring Rules
+
+Before running manual health checks, evaluate the auto-generated monitoring rules against live data.
+
+1. **Read monitoring rules** from `monitoring/rules.json`
+2. **Fetch live data** from the monitor API:
+   ```
+   curl -s https://d1y1xbjzzgjck0.cloudfront.net/api/monitor
+   ```
+3. **Evaluate each rule** against the response:
+   - For `metric: "error_rate"` — check `metrics[rule.lambda].error_rate` against `rule.condition`
+   - For `metric: "avg_duration"` — average the `metrics[rule.lambda].avg_duration` array, check against `rule.condition`
+   - For `metric: "total_invocations"` or `total_errors"` — check `metrics[rule.lambda].total_invocations` or `total_errors`
+   - For `metric: "smoke.site.ok"` — check `smoke.site.ok`
+   - For `metric: "smoke.api.ok"` — check `smoke.api.ok`
+4. **For each violation:**
+   a. Check `consecutive_violations` against `sensitivity` threshold
+   b. If `consecutive_violations < sensitivity` — increment `consecutive_violations` in rules.json, do NOT alert yet
+   c. If `consecutive_violations >= sensitivity` — this is a real alert:
+      - Try to reproduce: hit the endpoint, check CloudWatch logs for details
+      - If reproducible → check for existing open issue with same title, then create GitHub issue if none exists:
+        ```
+        gh issue create --title "Bug: <rule.name>" --body "Monitoring rule violated.\n\nRule: <rule.id>\nMetric: <current value> (threshold: <rule.condition>)\nSource: <rule.source>\nConsecutive violations: <count>\n\nReproduction: <details>" --label bug
+        ```
+      - If NOT reproducible → increase `rule.sensitivity` by 1 (reduce future false positives), set `rule.last_tuned` to current ISO timestamp, reset `consecutive_violations` to 0
+   d. Commit any changes to `monitoring/rules.json`
+5. **For passing rules** — reset `consecutive_violations` to 0 if it was non-zero
+6. **Report** — notify on Telegram with rule evaluation summary
+
+## Phase 2: Manual Health Checks
+
+After evaluating monitoring rules, run the standard health checks.
+
 1. **Lambda health check** — Verify all three Lambdas are healthy:
    a. Check each Lambda for recent errors in CloudWatch (last 2 hours):
       ```
@@ -28,7 +61,7 @@ user_invocable: true
 
 2. **CloudFront check** — Verify the site is reachable:
    ```
-   curl -s -o /dev/null -w "%{http_code}" "https://powpredictor.info"
+   curl -s -o /dev/null -w "%{http_code}" "https://d1y1xbjzzgjck0.cloudfront.net"
    ```
    If non-200, create a GitHub issue.
 
@@ -48,7 +81,7 @@ When frontend errors are found in `/aws/lambda/pow-predictor-frontend-errors` lo
    c. Wait for the owner's approval in Telegram. The owner will reply in Telegram — look for their response in the conversation.
    d. Once approved, implement the changes.
    e. Commit and deploy the changes using the `/deploy` skill.
-   f. Send a celebratory email to the feature requestor (the person who created the issue / submitted feedback) describing what was done, in a very celebratory tone.
+   f. Send a celebratory email using the `/send-celebration-email` skill — extract the contact email from the issue body, compose the body HTML, and send via `scripts/send_email.py`.
 
 ## Communication
 
@@ -63,7 +96,7 @@ When frontend errors are found in `/aws/lambda/pow-predictor-frontend-errors` lo
 - **Lambdas:** `pow-predictor-nve-proxy`, `pow-predictor-conditions-summary`, `pow-predictor-feedback`, `pow-predictor-frontend-errors`
 - **API Gateway:** `https://1uv0uf8m0g.execute-api.eu-north-1.amazonaws.com`
 - **CloudFront:** `E1FX2FUC1H43O2`
-- **Site:** `https://powpredictor.info`
+- **Site:** `https://d1y1xbjzzgjck0.cloudfront.net`
 
 ## Gotchas — Deployment
 
