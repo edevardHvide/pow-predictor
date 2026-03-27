@@ -23,6 +23,7 @@ import { WindCanvasLayer } from "./rendering/wind-layer-adapter.ts";
 import { isMobileDevice, MOBILE_PARTICLE_COUNT, DESKTOP_PARTICLE_COUNT } from "./utils/device.ts";
 import type { WindParams } from "./types/wind.ts";
 import type { Viewer } from "cesium";
+import { sendErrorReport } from "./utils/error-reporter.ts";
 import DevCoefficientPanel from "./components/DevCoefficientPanel.tsx";
 import { useDevMode } from "./hooks/useDevMode.ts";
 import type { CoefficientsOverride } from "./simulation/coefficients.ts";
@@ -299,7 +300,9 @@ export default function App() {
       backgroundWeatherRef.current = weather;
       // Signal that weather is available — backfills open tooltip
       setWeatherReady((n) => n + 1);
-    }).catch(() => {});
+    }).catch((err) => {
+      sendErrorReport(err instanceof Error ? err : new Error(String(err)), "weather-fetch");
+    });
   }, []);
 
   // Preload weather for the initial region so exploration clicks have data immediately
@@ -394,6 +397,7 @@ export default function App() {
       setSelectedPoint(null);
     } catch (err) {
       console.error("Historical sim failed:", err);
+      sendErrorReport(err instanceof Error ? err : new Error(String(err)), "historical-sim");
       setLoadingProgress(null);
     }
   }, [clearOverlays, clearSimulation, historicalSim]);
@@ -615,6 +619,7 @@ export default function App() {
       setAnalysisLoading(false);
     } catch (err: any) {
       if (err.name === "AbortError") return;
+      sendErrorReport(err instanceof Error ? err : new Error(String(err)), "conditions-summary");
       setAnalysisError("Could not load");
       setAnalysisLoading(false);
     }
