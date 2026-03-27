@@ -1,0 +1,90 @@
+{
+  "generated_at": "2026-03-27T09:30:00Z",
+  "deploy_commit": "51bed67",
+  "rules": [
+    {
+      "id": "nve-proxy-error-rate",
+      "name": "NVE Proxy error rate above 5%",
+      "metric": "error_rate",
+      "lambda": "pow-predictor-nve-proxy",
+      "condition": "< 5",
+      "sensitivity": 2,
+      "consecutive_violations": 0,
+      "source": "infra/lambda/nve_proxy.py",
+      "created_by_commit": "51bed67",
+      "last_tuned": null
+    },
+    {
+      "id": "nve-proxy-latency",
+      "name": "NVE Proxy avg latency above 5000ms",
+      "metric": "avg_duration",
+      "lambda": "pow-predictor-nve-proxy",
+      "condition": "< 5000",
+      "sensitivity": 2,
+      "consecutive_violations": 0,
+      "source": "infra/lambda/nve_proxy.py",
+      "created_by_commit": "51bed67",
+      "last_tuned": null
+    },
+    {
+      "id": "conditions-summary-error-rate",
+      "name": "Conditions Summary error rate above 10%",
+      "metric": "error_rate",
+      "lambda": "pow-predictor-conditions-summary",
+      "condition": "< 10",
+      "sensitivity": 2,
+      "consecutive_violations": 0,
+      "source": "infra/lambda/conditions_summary.py",
+      "created_by_commit": "51bed67",
+      "last_tuned": null
+    },
+    {
+      "id": "conditions-summary-latency",
+      "name": "Conditions Summary avg latency above 10000ms",
+      "metric": "avg_duration",
+      "lambda": "pow-predictor-conditions-summary",
+      "condition": "< 10000",
+      "sensitivity": 2,
+      "consecutive_violations": 0,
+      "source": "infra/lambda/conditions_summary.py",
+      "created_by_commit": "51bed67",
+      "last_tuned": null
+    },
+    {
+      "id": "frontend-errors-invocations",
+      "name": "Frontend error ingestion spike (>20 in 30min)",
+      "metric": "total_invocations",
+      "lambda": "pow-predictor-frontend-errors",
+      "condition": "< 20",
+      "sensitivity": 3,
+      "consecutive_violations": 0,
+      "source": "src/utils/error-reporter.ts",
+      "created_by_commit": "51bed67",
+      "last_tuned": null
+    },
+    {
+      "id": "site-smoke",
+      "name": "Site smoke test failing",
+      "metric": "smoke.site.ok",
+      "lambda": null,
+      "condition": "== true",
+      "sensitivity": 1,
+      "consecutive_violations": 0,
+      "source": "infra/cloudfront.tf",
+      "created_by_commit": "51bed67",
+      "last_tuned": null
+    },
+    {
+      "id": "api-smoke",
+      "name": "API Gateway smoke test failing",
+      "metric": "smoke.api.ok",
+      "lambda": null,
+      "condition": "== true",
+      "sensitivity": 1,
+      "consecutive_violations": 0,
+      "source": "infra/apigateway.tf",
+      "created_by_commit": "51bed67",
+      "last_tuned": null
+    }
+  ]
+}
