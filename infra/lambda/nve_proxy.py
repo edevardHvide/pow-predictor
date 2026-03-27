@@ -25,6 +25,7 @@ def lambda_handler(event, context):
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Methods": "GET, OPTIONS",
                     "Access-Control-Allow-Headers": "Content-Type",
+                    "Cache-Control": "public, max-age=1800",
                 },
                 "body": body,
             }

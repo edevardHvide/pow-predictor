@@ -28,6 +28,26 @@ resource "aws_cloudfront_function" "redirect_default_domain" {
   EOF
 }
 
+resource "aws_cloudfront_cache_policy" "api_cache" {
+  name        = "${var.project_name}-api-cache"
+  comment     = "Cache NVE API responses - query string is the cache key"
+  min_ttl     = 0
+  default_ttl = 1800  # 30 minutes
+  max_ttl     = 3600  # 1 hour (Lambda sends Cache-Control: max-age=1800)
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    cookies_config {
+      cookie_behavior = "none"
+    }
+    headers_config {
+      header_behavior = "none"
+    }
+    query_strings_config {
+      query_string_behavior = "all"
+    }
+  }
+}
+
 resource "aws_cloudfront_distribution" "frontend" {
   comment             = "Pow Predictor - Snow redistribution simulator"
   enabled             = true
@@ -41,6 +61,42 @@ resource "aws_cloudfront_distribution" "frontend" {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
     origin_id                = "${var.project_name}-s3"
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  origin {
+    domain_name = replace(aws_apigatewayv2_api.nve_proxy.api_endpoint, "https://", "")
+    origin_id   = "${var.project_name}-api"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  # NVE API routes — cached 30min via Lambda Cache-Control header
+  ordered_cache_behavior {
+    path_pattern             = "/api/nve/*"
+    target_origin_id         = "${var.project_name}-api"
+    viewer_protocol_policy   = "redirect-to-https"
+    compress                 = true
+    allowed_methods          = ["GET", "HEAD", "OPTIONS"]
+    cached_methods           = ["GET", "HEAD"]
+    cache_policy_id          = aws_cloudfront_cache_policy.api_cache.id
+    origin_request_policy_id = "b689b0a0-8776-4f0b-a46d-c9bde0b39e73" # AllViewerExceptHostHeader
+  }
+
+  # POST routes (conditions-summary, feedback, errors) — no caching, forward everything
+  ordered_cache_behavior {
+    path_pattern             = "/api/*"
+    target_origin_id         = "${var.project_name}-api"
+    viewer_protocol_policy   = "redirect-to-https"
+    compress                 = true
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods           = ["GET", "HEAD"]
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad" # CachingDisabled
+    origin_request_policy_id = "b689b0a0-8776-4f0b-a46d-c9bde0b39e73" # AllViewerExceptHostHeader
   }
 
   default_cache_behavior {
