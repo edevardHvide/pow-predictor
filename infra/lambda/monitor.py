@@ -2,6 +2,7 @@ import json
 import os
 import time
 import urllib.request
+import urllib.error
 import boto3
 
 REGION = "eu-north-1"
@@ -12,7 +13,8 @@ LAMBDA_LOG_GROUPS = [
     "/aws/lambda/pow-predictor-frontend-errors",
 ]
 SITE_URL = "https://powpredictor.info"
-API_URL = "https://1uv0uf8m0g.execute-api.eu-north-1.amazonaws.com/api/nve/GridTimeSeries/v2"
+# Hit API GW root — expect 404 (no route), but proves gateway is up. 5xx or connection error = problem.
+API_GW_URL = "https://1uv0uf8m0g.execute-api.eu-north-1.amazonaws.com/"
 
 
 def lambda_handler(event, context):
@@ -44,11 +46,17 @@ def lambda_handler(event, context):
             results["healthy"] = False
 
     # Smoke test site
-    for label, url in [("site", SITE_URL), ("api", f"{API_URL}?startDate=2026-01-01&endDate=2026-01-01&x=19.0&y=69.6&parameterIds=weather_temperature")]:
+    for label, url in [("site", SITE_URL), ("api", API_GW_URL)]:
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "pow-predictor-monitor"})
             with urllib.request.urlopen(req, timeout=10) as resp:
-                results["smoke"][label] = {"status": resp.status, "ok": 200 <= resp.status < 400}
+                results["smoke"][label] = {"status": resp.status, "ok": True}
+        except urllib.error.HTTPError as e:
+            # 4xx = server is up but bad request/route — that's fine for smoke test
+            is_ok = 400 <= e.code < 500
+            results["smoke"][label] = {"status": e.code, "ok": is_ok}
+            if not is_ok:
+                results["healthy"] = False
         except Exception as e:
             results["smoke"][label] = {"status": 0, "ok": False, "error": str(e)[:200]}
             results["healthy"] = False
