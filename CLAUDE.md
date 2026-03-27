@@ -270,7 +270,8 @@ All AWS resources are codified in `infra/` and managed with OpenTofu:
 - **CloudFront:** Distribution `E1FX2FUC1H43O2` with SPA error routing (403/404 → index.html)
 - **Lambda:** `pow-predictor-nve-proxy` (Python 3.11, proxies NVE API to avoid CORS)
 - **Lambda:** `pow-predictor-conditions-summary` (Python 3.11, calls Claude Haiku for RegObs analysis)
-- **API Gateway v2:** HTTP API with `GET /api/nve/{proxy+}` and `POST /api/conditions-summary` routes
+- **Lambda:** `pow-predictor-frontend-errors` (Python 3.11, ingests frontend JS errors to CloudWatch)
+- **API Gateway v2:** HTTP API with `GET /api/nve/{proxy+}`, `POST /api/conditions-summary`, and `POST /api/errors` routes
 - **IAM:** Scoped deploy user `pow-predictor` (S3, CloudFront, Lambda, CloudWatch only)
 - **State:** `s3://pow-predictor-tfstate` (versioned)
 
