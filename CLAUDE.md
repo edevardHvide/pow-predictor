@@ -29,7 +29,7 @@ Single-page React app with Web Worker computation (no backend for simulation):
 
 - **Frontend:** React 19, TypeScript 5.9, Vite 8, Tailwind CSS 4
 - **3D:** CesiumJS 1.139 + vite-plugin-cesium
-- **Weather API:** NVE GridTimeSeries (proxied through Vite dev server to avoid CORS)
+- **Weather API:** NVE GridTimeSeries (dev: Vite proxy, prod: CloudFront → API Gateway → Lambda)
 - **Observations:** RegObs v5/Search API (snow observations, avalanche reports)
 - **Search:** Kartverket Stedsnavn API (all place types in Norway)
 - **Runs locally** — `npm run dev` on http://localhost:5173
@@ -267,11 +267,12 @@ Terrain height < 40m = water/shore (transparent in snow overlay, no particles). 
 All AWS resources are codified in `infra/` and managed with OpenTofu:
 
 - **S3:** `pow-predictor-frontend` (static assets, public access blocked, CloudFront OAC)
-- **CloudFront:** Distribution `E1FX2FUC1H43O2` with SPA error routing (403/404 → index.html)
-- **Lambda:** `pow-predictor-nve-proxy` (Python 3.11, proxies NVE API to avoid CORS)
+- **CloudFront:** Distribution `E1FX2FUC1H43O2` — serves static assets from S3 AND routes `/api/*` to API Gateway. NVE responses cached 30min at edge. SPA error routing (403/404 → index.html).
+- **Lambda:** `pow-predictor-nve-proxy` (Python 3.11, proxies NVE API, returns `Cache-Control: public, max-age=1800`)
 - **Lambda:** `pow-predictor-conditions-summary` (Python 3.11, calls Claude Haiku for RegObs analysis)
 - **Lambda:** `pow-predictor-frontend-errors` (Python 3.11, ingests frontend JS errors to CloudWatch)
-- **API Gateway v2:** HTTP API with `GET /api/nve/{proxy+}`, `POST /api/conditions-summary`, and `POST /api/errors` routes
+- **Lambda:** `pow-predictor-monitor` (Python 3.11, health check endpoint)
+- **API Gateway v2:** HTTP API (200 req/s, 500 burst) with `GET /api/nve/{proxy+}`, `POST /api/conditions-summary`, `POST /api/errors`, `GET /api/monitor` routes
 - **IAM:** Scoped deploy user `pow-predictor` (S3, CloudFront, Lambda, CloudWatch only)
 - **State:** `s3://pow-predictor-tfstate` (versioned)
 
