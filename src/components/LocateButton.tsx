@@ -1,20 +1,14 @@
 import { useState, useCallback } from "react";
-import {
-  Cartesian3,
-  BoundingSphere,
-  Math as CesiumMath,
-  type Viewer,
-} from "cesium";
 
 interface LocateButtonProps {
-  viewer: Viewer | null;
+  onLocate: (lat: number, lng: number) => void;
 }
 
-export default function LocateButton({ viewer }: LocateButtonProps) {
+export default function LocateButton({ onLocate }: LocateButtonProps) {
   const [locating, setLocating] = useState(false);
 
   const locate = useCallback(() => {
-    if (!viewer || locating) return;
+    if (locating) return;
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser.");
       return;
@@ -23,17 +17,8 @@ export default function LocateButton({ viewer }: LocateButtonProps) {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
-        const target = Cartesian3.fromDegrees(longitude, latitude, 0);
-        viewer.camera.flyToBoundingSphere(new BoundingSphere(target, 8000), {
-          duration: 1.5,
-          offset: {
-            heading: viewer.camera.heading,
-            pitch: CesiumMath.toRadians(-35),
-            range: 0,
-          },
-        });
         setLocating(false);
+        onLocate(position.coords.latitude, position.coords.longitude);
       },
       (error) => {
         setLocating(false);
@@ -45,7 +30,7 @@ export default function LocateButton({ viewer }: LocateButtonProps) {
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
-  }, [viewer, locating]);
+  }, [locating, onLocate]);
 
   return (
     <button

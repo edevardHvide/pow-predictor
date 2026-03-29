@@ -687,7 +687,25 @@ export default function App() {
       </CesiumErrorBoundary>
 
       <MapCompass viewer={cesiumViewer} />
-      <LocateButton viewer={cesiumViewer} />
+      <LocateButton onLocate={(lat, lng) => {
+        const name = `${lat.toFixed(3)}°N, ${lng.toFixed(3)}°E`;
+        if (selectionMode) {
+          setSelectedPoint({ lat, lng, name });
+          setShowConfirmDialog(true);
+          startPrefetch(lat, lng);
+          return;
+        }
+        setSearchedMountain({ lat, lng, name });
+        setDepthProbe(null);
+        setTerrainReady(false);
+        clearSimulation();
+        clearOverlays();
+        historicalSim.reset();
+        backgroundWeatherRef.current = null;
+        if (historicalMode) exitHistoricalMode();
+        setRegion(regionFromCoordinates(name, lat, lng));
+        startPrefetch(lat, lng);
+      }} />
       <ScaleBar viewer={cesiumViewer} />
 
       <ControlPanel
