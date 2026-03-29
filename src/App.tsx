@@ -92,7 +92,7 @@ export default function App() {
   });
   const [showSnow, setShowSnow] = useState(true);
   const [showWind, setShowWind] = useState(true);
-  const [showPeakLabels, setShowPeakLabels] = useState(true);
+  const [showPeakLabels, setShowPeakLabels] = useState(false);
   const [terrainReady, setTerrainReady] = useState(false);
 
   // Historical mode state
