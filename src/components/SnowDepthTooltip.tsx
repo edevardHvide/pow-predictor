@@ -1,3 +1,4 @@
+import { useRef, useState, useCallback } from "react";
 import type { ConditionsSummary } from "../types/conditions";
 
 interface SnowDepthTooltipProps {
@@ -59,6 +60,34 @@ export default function SnowDepthTooltip({
 }: SnowDepthTooltipProps) {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768 && "ontouchstart" in window;
 
+  // Pull-down-to-dismiss state
+  const [dragY, setDragY] = useState(0);
+  const dragStartY = useRef(0);
+  const isDragging = useRef(false);
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+    isDragging.current = true;
+    setDragY(0);
+  }, []);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging.current) return;
+    const dy = e.touches[0].clientY - dragStartY.current;
+    // Only allow pulling down (positive dy)
+    setDragY(Math.max(0, dy));
+  }, []);
+
+  const onTouchEnd = useCallback(() => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    if (dragY > 80) {
+      onClose();
+    } else {
+      setDragY(0);
+    }
+  }, [dragY, onClose]);
+
   const hasWeather = temp !== undefined;
   const weatherLoading = !hasWeather && depthCm < 0; // No weather yet in exploration mode
   const hasDepth = depthCm >= 0;
@@ -68,10 +97,24 @@ export default function SnowDepthTooltip({
   if (isMobile) {
     return (
       <div
-        className="fixed z-30 bottom-0 left-0 right-0 glass-panel text-white px-4 py-3 pb-[env(safe-area-inset-bottom,8px)] pointer-events-auto border-t border-t-sky-400/40 max-h-[60vh] flex flex-col"
+        className="fixed z-30 bottom-0 left-0 right-0 glass-panel text-white px-4 pt-1 pb-[env(safe-area-inset-bottom,8px)] pointer-events-auto border-t border-t-sky-400/40 max-h-[60vh] flex flex-col"
+        style={{
+          transform: `translateY(${dragY}px)`,
+          transition: isDragging.current ? "none" : "transform 0.25s ease-out",
+          opacity: isDragging.current ? Math.max(0.3, 1 - dragY / 200) : 1,
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start gap-3 overflow-y-auto min-h-0">
+        {/* Drag handle */}
+        <div
+          className="flex justify-center py-2 cursor-grab"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          <div className="w-10 h-1 rounded-full bg-slate-500/60" />
+        </div>
+        <div className="flex items-start gap-3 overflow-y-auto min-h-0 px-0 pb-2">
           <div className="flex-1 overflow-y-auto min-h-0">
             {hasDepth ? (
               <>
