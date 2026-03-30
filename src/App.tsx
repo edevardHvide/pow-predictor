@@ -23,7 +23,7 @@ import { renderSnowOverlay, removeSnowOverlay, SnowOverlayManager } from "./rend
 import { WindCanvasLayer } from "./rendering/wind-layer-adapter.ts";
 import { isMobileDevice, MOBILE_PARTICLE_COUNT, DESKTOP_PARTICLE_COUNT } from "./utils/device.ts";
 import type { WindParams } from "./types/wind.ts";
-import type { Viewer } from "cesium";
+import { Cartesian2, Cartographic, Math as CesiumMath, type Viewer } from "cesium";
 import { sendErrorReport } from "./utils/error-reporter.ts";
 import DevCoefficientPanel from "./components/DevCoefficientPanel.tsx";
 import { useDevMode } from "./hooks/useDevMode.ts";
@@ -705,6 +705,29 @@ export default function App() {
         setRegion(regionFromCoordinates(name, lat, lng));
         startPrefetch(lat, lng);
       }} />
+      {isMobileDevice() && terrainReady && !historicalMode && !showConfirmDialog && !selectionMode && (
+        <button
+          onClick={() => {
+            const viewer = viewerRef.current;
+            if (!viewer) return;
+            const canvas = viewer.canvas;
+            const center = new Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2);
+            const ellipsoidPos = viewer.camera.pickEllipsoid(center);
+            if (ellipsoidPos) {
+              const carto = Cartographic.fromCartesian(ellipsoidPos);
+              enterHistoricalMode({ lat: CesiumMath.toDegrees(carto.latitude), lng: CesiumMath.toDegrees(carto.longitude) });
+            } else {
+              enterHistoricalMode();
+            }
+          }}
+          className="absolute top-[calc(env(safe-area-inset-top)+6.5rem)] right-3 z-10 glass-panel rounded-full px-3 py-2 flex items-center gap-1.5 active:scale-95 transition-transform"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="5,3 19,12 5,21" />
+          </svg>
+          <span className="text-xs text-emerald-400 font-medium">Simulate</span>
+        </button>
+      )}
       <ScaleBar viewer={cesiumViewer} />
 
       <ControlPanel
