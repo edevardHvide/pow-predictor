@@ -165,13 +165,12 @@ export default function App() {
   // Auto-simulate when params change (manual mode only)
   const prevKey = useRef("");
   useEffect(() => {
-    if (!terrainReady || historicalMode) return;
+    if (!terrainReady || !workerReady || historicalMode) return;
     const key = `${params.direction}-${params.speed}-${params.temperature}`;
     if (key === prevKey.current) return;
     prevKey.current = key;
-    const timer = setTimeout(() => runSimulation(params, devOverridesRef.current), 150);
-    return () => clearTimeout(timer);
-  }, [params.direction, params.speed, params.temperature, terrainReady, historicalMode]); // eslint-disable-line react-hooks/exhaustive-deps
+    runSimulation(params, devOverridesRef.current);
+  }, [params.direction, params.speed, params.temperature, terrainReady, workerReady, historicalMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Create/update wind layer when wind field changes (manual mode)
   useEffect(() => {
