@@ -243,7 +243,7 @@ function generateSamplePoints(
 
 // ── Weather cache (localStorage, 3h TTL) ────────────────
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
-const CACHE_KEY_PREFIX = "pow-weather-";
+const CACHE_KEY_PREFIX = "pow-weather-v2-"; // v2: MEPS wind integration
 
 function cacheKey(bboxWest: number, bboxSouth: number, bboxEast: number, bboxNorth: number): string {
   return CACHE_KEY_PREFIX + [bboxWest, bboxSouth, bboxEast, bboxNorth].map(v => v.toFixed(2)).join(",");
@@ -303,6 +303,61 @@ function blendWindForAltitude(
   const dir = ((Math.atan2(sinD, cosD) * 180 / Math.PI) + 360) % 360;
 
   return { speed, dir };
+}
+
+/** Apply MEPS wind data to weather stations, replacing wind with altitude-blended values. */
+function applyMepsWind(
+  stations: WeatherStation[],
+  timestamps: Date[],
+  mepsStations: MepsWindStation[],
+): void {
+  for (const station of stations) {
+    let bestMeps: MepsWindStation | null = null;
+    let bestDist = Infinity;
+    for (const meps of mepsStations) {
+      const dlat = station.lat - meps.lat;
+      const dlng = (station.lng - meps.lng) * Math.cos(station.lat * Math.PI / 180);
+      const dist = dlat * dlat + dlng * dlng;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestMeps = meps;
+      }
+    }
+    if (!bestMeps) continue;
+
+    const mepsWindSpeed: number[] = [];
+    const mepsWindDir: number[] = [];
+
+    for (let i = 0; i < timestamps.length; i++) {
+      const targetMs = timestamps[i].getTime();
+
+      let bestIdx = 0;
+      let bestTimeDist = Infinity;
+      for (let j = 0; j < bestMeps.timestamps.length; j++) {
+        const dist = Math.abs(bestMeps.timestamps[j] - targetMs);
+        if (dist < bestTimeDist) {
+          bestTimeDist = dist;
+          bestIdx = j;
+        }
+      }
+
+      if (bestTimeDist < 2 * 3600 * 1000 && bestIdx < bestMeps.windSpeed10m.length) {
+        const blended = blendWindForAltitude(
+          station.altitude,
+          bestMeps.windSpeed10m[bestIdx], bestMeps.windDir10m[bestIdx],
+          bestMeps.windSpeed850hPa[bestIdx], bestMeps.windDir850hPa[bestIdx],
+        );
+        mepsWindSpeed.push(blended.speed);
+        mepsWindDir.push(blended.dir);
+      } else {
+        mepsWindSpeed.push(station.windSpeed[i] ?? 0);
+        mepsWindDir.push(station.windDir[i] ?? 0);
+      }
+    }
+
+    station.windSpeed = mepsWindSpeed;
+    station.windDir = mepsWindDir;
+  }
 }
 
 /**
@@ -398,9 +453,13 @@ export async function fetchSpatialWeather(
     nveTimestamps.push(new Date(histStart.getTime() + i * 3 * 60 * 60 * 1000));
   }
 
-  // If MET failed, return NVE-only
+  // If MET failed, return NVE-only (but still apply MEPS wind)
   if (metResult.stations.length === 0 || metResult.timestamps.length === 0) {
     console.log("MET forecast unavailable, using NVE-only");
+    if (mepsResult && mepsResult.stations.length > 0) {
+      applyMepsWind(nveStations, nveTimestamps, mepsResult.stations);
+      console.log("MEPS wind applied to NVE-only stations");
+    }
     onProgress?.("Weather data loaded (NVE only)", 100);
     const result = { timestamps: nveTimestamps, stations: nveStations };
     setCachedWeather(key, result);
@@ -421,6 +480,10 @@ export async function fetchSpatialWeather(
   if (metStartIdx < 0) {
     // All MET data is in the past — use NVE only
     console.log("MET data does not extend past now, using NVE-only");
+    if (mepsResult && mepsResult.stations.length > 0) {
+      applyMepsWind(nveStations, nveTimestamps, mepsResult.stations);
+      console.log("MEPS wind applied to NVE-only stations");
+    }
     onProgress?.("Weather data loaded (NVE only)", 100);
     const result = { timestamps: nveTimestamps, stations: nveStations };
     setCachedWeather(key, result);
@@ -486,59 +549,7 @@ export async function fetchSpatialWeather(
   if (mepsResult && mepsResult.stations.length > 0) {
     onProgress?.("Applying MEPS wind data...", 92);
     console.log(`MEPS: ${mepsResult.stations.length} wind stations from ${mepsResult.sources.join(", ")}`);
-
-    for (const station of mergedStations) {
-      // Find closest MEPS station
-      let bestMeps: MepsWindStation | null = null;
-      let bestDist = Infinity;
-      for (const meps of mepsResult.stations) {
-        const dlat = station.lat - meps.lat;
-        const dlng = (station.lng - meps.lng) * Math.cos(station.lat * Math.PI / 180);
-        const dist = dlat * dlat + dlng * dlng;
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestMeps = meps;
-        }
-      }
-      if (!bestMeps) continue;
-
-      // For each merged timestep, find closest MEPS timestep and blend wind by altitude
-      const mepsWindSpeed: number[] = [];
-      const mepsWindDir: number[] = [];
-
-      for (let i = 0; i < mergedTimestamps.length; i++) {
-        const targetMs = mergedTimestamps[i].getTime();
-
-        let bestIdx = 0;
-        let bestTimeDist = Infinity;
-        for (let j = 0; j < bestMeps.timestamps.length; j++) {
-          const dist = Math.abs(bestMeps.timestamps[j] - targetMs);
-          if (dist < bestTimeDist) {
-            bestTimeDist = dist;
-            bestIdx = j;
-          }
-        }
-
-        // Only use MEPS if within 3h of target
-        if (bestTimeDist < 3 * 3600 * 1000 && bestIdx < bestMeps.windSpeed10m.length) {
-          const blended = blendWindForAltitude(
-            station.altitude,
-            bestMeps.windSpeed10m[bestIdx], bestMeps.windDir10m[bestIdx],
-            bestMeps.windSpeed850hPa[bestIdx], bestMeps.windDir850hPa[bestIdx],
-          );
-          mepsWindSpeed.push(blended.speed);
-          mepsWindDir.push(blended.dir);
-        } else {
-          // Outside MEPS range: keep existing NVE/MET wind
-          mepsWindSpeed.push(station.windSpeed[i] ?? 0);
-          mepsWindDir.push(station.windDir[i] ?? 0);
-        }
-      }
-
-      station.windSpeed = mepsWindSpeed;
-      station.windDir = mepsWindDir;
-    }
-
+    applyMepsWind(mergedStations, mergedTimestamps, mepsResult.stations);
     console.log("MEPS wind applied to all stations with altitude blending");
   }
 
