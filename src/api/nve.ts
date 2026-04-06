@@ -1,3 +1,5 @@
+import { fetchMepsWindGrid, type MepsWindStation } from "./meps.ts";
+
 // In dev: Vite proxy handles CORS. In prod: CloudFront routes /api/* to API Gateway.
 export const API_GATEWAY_URL = import.meta.env.DEV
   ? ""
@@ -275,9 +277,38 @@ function setCachedWeather(key: string, data: SpatialWeatherTimeSeries): void {
 }
 
 /**
+ * Blend 10m surface wind with 850hPa free-atmosphere wind based on altitude.
+ * Below 500m: pure 10m wind (sheltered valleys).
+ * Above 900m: pure 850hPa wind (exposed ridges).
+ * 500-900m: linear blend.
+ */
+function blendWindForAltitude(
+  altitude: number,
+  speed10m: number, dir10m: number,
+  speed850: number, dir850: number,
+): { speed: number; dir: number } {
+  const LOW = 500;
+  const HIGH = 900;
+  let t = 0;
+  if (altitude <= LOW) t = 0;
+  else if (altitude >= HIGH) t = 1;
+  else t = (altitude - LOW) / (HIGH - LOW);
+
+  const speed = speed10m + t * (speed850 - speed10m);
+
+  const rad10 = dir10m * Math.PI / 180;
+  const rad850 = dir850 * Math.PI / 180;
+  const sinD = Math.sin(rad10) * (1 - t) + Math.sin(rad850) * t;
+  const cosD = Math.cos(rad10) * (1 - t) + Math.cos(rad850) * t;
+  const dir = ((Math.atan2(sinD, cosD) * 180 / Math.PI) + 360) % 360;
+
+  return { speed, dir };
+}
+
+/**
  * Fetch spatial weather: NVE for history, MET (yr.no) for forecast.
- * MET provides accurate terrain-aware wind from the MEPS 2.5km model.
- * Falls back to NVE-only if MET fails.
+ * MEPS wind from THREDDS replaces NVE/MET wind with 850hPa altitude blending.
+ * Falls back gracefully if MEPS unavailable.
  * Cached in localStorage for 3 hours to avoid redundant API calls.
  */
 export async function fetchSpatialWeather(
@@ -303,10 +334,16 @@ export async function fetchSpatialWeather(
   const samplePoints = generateSamplePoints(bboxWest, bboxSouth, bboxEast, bboxNorth);
   console.log(`Spatial weather: fetching ${samplePoints.length} stations across bbox`);
 
-  // ── Phase 2: MET forecast (start early, runs in parallel with NVE batches) ──
+  // ── Phase 2: MET forecast + MEPS wind (start early, run in parallel with NVE batches) ──
   const { fetchMetForecastGrid } = await import("./met.ts");
   const metPromise = fetchMetForecastGrid(samplePoints, (stage, pct) => {
     onProgress?.(stage, 40 + pct * 0.4);
+  });
+
+  // MEPS wind: fetch 10m + 850hPa + gusts for all sample points
+  const mepsPromise = fetchMepsWindGrid(samplePoints, 24).catch((err) => {
+    console.warn("MEPS wind fetch failed, will use NVE/MET wind:", err);
+    return null;
   });
 
   // ── Phase 1: NVE history (batched to avoid Lambda concurrency limit) ──
@@ -328,6 +365,7 @@ export async function fetchSpatialWeather(
   }
 
   const metResult = await metPromise;
+  const mepsResult = await mepsPromise;
 
   const nveStations = nveStationResults.filter((s): s is WeatherStation => s !== null);
   console.log(`NVE: ${nveStations.length}/${samplePoints.length} stations, MET: ${metResult.stations.length} stations`);
@@ -442,6 +480,66 @@ export async function fetchSpatialWeather(
       s.windSpeed = s.windSpeed.slice(0, expectedLen);
       s.windDir = s.windDir.slice(0, expectedLen);
     }
+  }
+
+  // ── Phase 4: Replace wind data with MEPS if available ──
+  if (mepsResult && mepsResult.stations.length > 0) {
+    onProgress?.("Applying MEPS wind data...", 92);
+    console.log(`MEPS: ${mepsResult.stations.length} wind stations from ${mepsResult.source}`);
+
+    for (const station of mergedStations) {
+      // Find closest MEPS station
+      let bestMeps: MepsWindStation | null = null;
+      let bestDist = Infinity;
+      for (const meps of mepsResult.stations) {
+        const dlat = station.lat - meps.lat;
+        const dlng = (station.lng - meps.lng) * Math.cos(station.lat * Math.PI / 180);
+        const dist = dlat * dlat + dlng * dlng;
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestMeps = meps;
+        }
+      }
+      if (!bestMeps) continue;
+
+      // For each merged timestep, find closest MEPS timestep and blend wind by altitude
+      const mepsWindSpeed: number[] = [];
+      const mepsWindDir: number[] = [];
+
+      for (let i = 0; i < mergedTimestamps.length; i++) {
+        const targetMs = mergedTimestamps[i].getTime();
+
+        let bestIdx = 0;
+        let bestTimeDist = Infinity;
+        for (let j = 0; j < bestMeps.timestamps.length; j++) {
+          const dist = Math.abs(bestMeps.timestamps[j] - targetMs);
+          if (dist < bestTimeDist) {
+            bestTimeDist = dist;
+            bestIdx = j;
+          }
+        }
+
+        // Only use MEPS if within 3h of target
+        if (bestTimeDist < 3 * 3600 * 1000 && bestIdx < bestMeps.windSpeed10m.length) {
+          const blended = blendWindForAltitude(
+            station.altitude,
+            bestMeps.windSpeed10m[bestIdx], bestMeps.windDir10m[bestIdx],
+            bestMeps.windSpeed850hPa[bestIdx], bestMeps.windDir850hPa[bestIdx],
+          );
+          mepsWindSpeed.push(blended.speed);
+          mepsWindDir.push(blended.dir);
+        } else {
+          // Outside MEPS range: keep existing NVE/MET wind
+          mepsWindSpeed.push(station.windSpeed[i] ?? 0);
+          mepsWindDir.push(station.windDir[i] ?? 0);
+        }
+      }
+
+      station.windSpeed = mepsWindSpeed;
+      station.windDir = mepsWindDir;
+    }
+
+    console.log("MEPS wind applied to all stations with altitude blending");
   }
 
   onProgress?.("Weather data loaded", 100);

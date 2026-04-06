@@ -208,3 +208,30 @@ resource "aws_iam_role_policy" "monitor_logs_read" {
     ]
   })
 }
+
+# --- Lambda: MEPS Wind (THREDDS OPeNDAP proxy) ---
+
+data "archive_file" "meps_wind" {
+  type        = "zip"
+  source_file = "${path.module}/lambda/meps_wind.py"
+  output_path = "${path.module}/.build/meps_wind.zip"
+}
+
+resource "aws_lambda_function" "meps_wind" {
+  function_name    = "${var.project_name}-meps-wind"
+  role             = aws_iam_role.lambda.arn
+  handler          = "meps_wind.lambda_handler"
+  runtime          = "python3.11"
+  timeout          = 30
+  memory_size      = 128
+  filename         = data.archive_file.meps_wind.output_path
+  source_code_hash = data.archive_file.meps_wind.output_base64sha256
+}
+
+resource "aws_lambda_permission" "meps_wind_apigw" {
+  statement_id  = "ApiGatewayInvokeMepsWind"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.meps_wind.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.nve_proxy.execution_arn}/*/*"
+}

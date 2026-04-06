@@ -35,6 +35,10 @@ export default defineConfig({
         target: "https://1uv0uf8m0g.execute-api.eu-north-1.amazonaws.com",
         changeOrigin: true,
       },
+      "/api/meps-wind": {
+        target: "https://1uv0uf8m0g.execute-api.eu-north-1.amazonaws.com",
+        changeOrigin: true,
+      },
     },
   },
 });
