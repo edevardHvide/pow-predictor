@@ -389,10 +389,17 @@ export async function fetchSpatialWeather(
   const samplePoints = generateSamplePoints(bboxWest, bboxSouth, bboxEast, bboxNorth);
   console.log(`Spatial weather: fetching ${samplePoints.length} stations across bbox`);
 
+  // Progress high-water mark — never report backwards
+  let progressHWM = 0;
+  const reportProgress = (stage: string, pct: number) => {
+    if (pct > progressHWM) progressHWM = pct;
+    onProgress?.(stage, progressHWM);
+  };
+
   // ── Phase 2: MET forecast + MEPS wind (start early, run in parallel with NVE batches) ──
   const { fetchMetForecastGrid } = await import("./met.ts");
   const metPromise = fetchMetForecastGrid(samplePoints, (stage, pct) => {
-    onProgress?.(stage, 40 + pct * 0.4);
+    reportProgress(stage, 40 + pct * 0.4);
   });
 
   // MEPS wind: fetch history + forecast (10m + 850hPa + gusts) for all sample points
@@ -402,7 +409,7 @@ export async function fetchSpatialWeather(
   });
 
   // ── Phase 1: NVE history (batched to avoid Lambda concurrency limit) ──
-  onProgress?.("Fetching NVE history...", 0);
+  reportProgress("Fetching NVE history...", 0);
   let nveCompleted = 0;
   const STATION_BATCH = 2; // Each station fires 4 parallel requests; 2×4=8 stays within Lambda limits
   const nveStationResults: (WeatherStation | null)[] = [];
@@ -412,7 +419,7 @@ export async function fetchSpatialWeather(
       batch.map(async (pt) => {
         const station = await fetchStation(pt.lat, pt.lng, fmt(histStart), fmt(histEnd));
         nveCompleted++;
-        onProgress?.(`Fetching NVE history... (${nveCompleted}/${samplePoints.length})`, (nveCompleted / samplePoints.length) * 40);
+        reportProgress(`Fetching NVE history... (${nveCompleted}/${samplePoints.length})`, (nveCompleted / samplePoints.length) * 40);
         return station;
       }),
     );
@@ -444,7 +451,7 @@ export async function fetchSpatialWeather(
   }
 
   // ── Phase 3: Merge NVE history + MET forecast ──
-  onProgress?.("Merging history + forecast...", 85);
+  reportProgress("Merging history + forecast...", 85);
 
   // Build NVE timestamps
   const nveLen = nveStations[0].temp.length;
@@ -460,7 +467,7 @@ export async function fetchSpatialWeather(
       applyMepsWind(nveStations, nveTimestamps, mepsResult.stations);
       console.log("MEPS wind applied to NVE-only stations");
     }
-    onProgress?.("Weather data loaded (NVE only)", 100);
+    reportProgress("Weather data loaded (NVE only)", 100);
     const result = { timestamps: nveTimestamps, stations: nveStations };
     setCachedWeather(key, result);
     return result;
@@ -484,7 +491,7 @@ export async function fetchSpatialWeather(
       applyMepsWind(nveStations, nveTimestamps, mepsResult.stations);
       console.log("MEPS wind applied to NVE-only stations");
     }
-    onProgress?.("Weather data loaded (NVE only)", 100);
+    reportProgress("Weather data loaded (NVE only)", 100);
     const result = { timestamps: nveTimestamps, stations: nveStations };
     setCachedWeather(key, result);
     return result;
@@ -547,13 +554,13 @@ export async function fetchSpatialWeather(
 
   // ── Phase 4: Replace wind data with MEPS if available ──
   if (mepsResult && mepsResult.stations.length > 0) {
-    onProgress?.("Applying MEPS wind data...", 92);
+    reportProgress("Applying MEPS wind data...", 92);
     console.log(`MEPS: ${mepsResult.stations.length} wind stations from ${mepsResult.sources.join(", ")}`);
     applyMepsWind(mergedStations, mergedTimestamps, mepsResult.stations);
     console.log("MEPS wind applied to all stations with altitude blending");
   }
 
-  onProgress?.("Weather data loaded", 100);
+  reportProgress("Weather data loaded", 100);
   console.log(`Merged: ${nveKeepLen} NVE history + ${metKeepLen} MET forecast = ${mergedTimestamps.length} timesteps, ${mergedStations.length} stations`);
   console.log(`Splice at: ${new Date(spliceMs).toISOString()}`);
 
