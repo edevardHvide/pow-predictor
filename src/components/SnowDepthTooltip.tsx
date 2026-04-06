@@ -140,7 +140,7 @@ export default function SnowDepthTooltip({
                   </p>
                   <div className="text-xs text-slate-400 font-light mt-1 space-y-0.5">
                     <p><span className="text-slate-500">├</span> Base (SeNorge{senorgeAltitude ? `, ${Math.round(senorgeAltitude)}m` : ""}): <span className="text-slate-300 tabular-nums">{senorgeDepthCm} cm</span></p>
-                    <p><span className="text-slate-500">├</span> Sim period: <span className="text-slate-300 tabular-nums">{Math.round(depthCm)} cm</span></p>
+                    <p><span className="text-slate-500">├</span> Simulation period: <span className="text-slate-300 tabular-nums">{Math.round(depthCm)} cm</span></p>
                     <p><span className="text-slate-500">└</span> Wind redistribution: <span className={`tabular-nums ${redistributionCm! >= 0 ? "text-emerald-400" : "text-amber-400"}`}>{redistLabel}</span></p>
                   </div>
                 </>
@@ -150,7 +150,7 @@ export default function SnowDepthTooltip({
                     {depthCm.toFixed(1)} cm
                   </p>
                   <p className="text-xs text-slate-400 font-light mt-0.5">
-                    Predicted accumulation from sim period
+                    Predicted accumulation from simulation period
                   </p>
                 </>
               )
@@ -344,7 +344,7 @@ export default function SnowDepthTooltip({
                 </p>
                 <div className="text-[11px] text-slate-400 font-light mt-1 space-y-0.5">
                   <p><span className="text-slate-500">├</span> Base (SeNorge{senorgeAltitude ? `, ${Math.round(senorgeAltitude)}m` : ""}): <span className="text-slate-300 tabular-nums">{senorgeDepthCm} cm</span></p>
-                  <p><span className="text-slate-500">├</span> Sim period: <span className="text-slate-300 tabular-nums">{Math.round(depthCm)} cm</span></p>
+                  <p><span className="text-slate-500">├</span> Simulation period: <span className="text-slate-300 tabular-nums">{Math.round(depthCm)} cm</span></p>
                   <p><span className="text-slate-500">└</span> Wind redistribution: <span className={`tabular-nums ${redistributionCm! >= 0 ? "text-emerald-400" : "text-amber-400"}`}>{redistLabel}</span></p>
                 </div>
               </>
@@ -354,7 +354,7 @@ export default function SnowDepthTooltip({
                   {depthCm.toFixed(1)} cm
                 </p>
                 <p className="text-xs text-slate-400 font-light mt-0.5">
-                  Predicted accumulation from sim period
+                  Predicted accumulation from simulation period
                 </p>
               </>
             )

@@ -93,20 +93,20 @@ export default function WelcomePage() {
 
           {/* Description */}
           <p className="text-sm sm:text-[15px] text-slate-300 font-light leading-relaxed mb-4 sm:mb-6">
-            Find the best powder snow in Norwegian mountains. Uses real weather data
-            from NVE and MET Norway to simulate how wind transports snow — scouring
-            ridges and depositing on lee slopes — with physically-based snow physics.
+            Predicts where powder accumulates in Norwegian mountains. Combines
+            SeNorge snow depth, NVE/MET weather, and wind-driven snow transport
+            physics to show you where the good snow is — at 75m resolution.
           </p>
 
-          {/* How to use — two modes */}
+          {/* How to use */}
           <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
             <h2
               className="text-xs font-medium tracking-[0.15em] uppercase text-slate-500"
             >
-              Two ways to explore
+              How it works
             </h2>
 
-            {/* Exploration mode */}
+            {/* Step 1: Search */}
             <div
               className="rounded-xl p-4"
               style={{
@@ -115,24 +115,16 @@ export default function WelcomePage() {
               }}
             >
               <div className="flex items-center gap-2.5 mb-2">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center bg-sky-500/15 text-sky-400">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-                  </svg>
-                </div>
-                <span className="text-sm font-medium text-sky-200">Exploration Mode</span>
-                <span className="text-[10px] text-slate-500 bg-slate-700/50 px-2 py-0.5 rounded-full ml-auto">default</span>
+                <div className="w-6 h-6 rounded-full flex items-center justify-center bg-sky-500/15 text-sky-400 text-xs font-medium">1</div>
+                <span className="text-sm font-medium text-sky-200">Search a mountain</span>
               </div>
               <p className="text-xs text-slate-400 font-light leading-relaxed pl-[34px]">
-                Click anywhere to see live weather with conditions emoji.
-                Tap <span className="text-slate-300">Analyze with RegObs + AI</span> for
-                field observations and AI-powered snow analysis. Adjust wind and
-                temperature to see snow redistribute in real time.
+                Use the search bar to find any location in Norway. The terrain
+                loads automatically and weather data starts prefetching in the background.
               </p>
             </div>
 
-            {/* Historical mode */}
+            {/* Step 2: Simulate */}
             <div
               className="rounded-xl p-4"
               style={{
@@ -141,19 +133,34 @@ export default function WelcomePage() {
               }}
             >
               <div className="flex items-center gap-2.5 mb-2">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center bg-emerald-500/15 text-emerald-400">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                </div>
-                <span className="text-sm font-medium text-emerald-200">Simulation Mode</span>
+                <div className="w-6 h-6 rounded-full flex items-center justify-center bg-emerald-500/15 text-emerald-400 text-xs font-medium">2</div>
+                <span className="text-sm font-medium text-emerald-200">Run the simulation</span>
               </div>
               <p className="text-xs text-slate-400 font-light leading-relaxed pl-[34px]">
-                Search a mountain and tap <span className="text-slate-300">Simulate</span>.
-                Runs a 12-day simulation (7 days history + 5 forecast) using NVE
-                and MET weather data with a playable timeline. Click anywhere
-                during playback to probe predicted snow depth.
+                Click the map and tap <span className="text-slate-300">Run Simulation</span>.
+                A 12-day simulation (7 days history + 5 forecast) runs using real
+                weather data. Play through the timeline to see snow build up and
+                redistribute with the wind.
+              </p>
+            </div>
+
+            {/* Step 3: Analyze */}
+            <div
+              className="rounded-xl p-4"
+              style={{
+                background: "rgba(30, 41, 59, 0.45)",
+                border: "1px solid rgba(148, 163, 184, 0.08)",
+              }}
+            >
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center bg-cyan-500/15 text-cyan-400 text-xs font-medium">3</div>
+                <span className="text-sm font-medium text-cyan-200">Analyze snow conditions</span>
+              </div>
+              <p className="text-xs text-slate-400 font-light leading-relaxed pl-[34px]">
+                Click any point to see predicted snow depth with a SeNorge baseline
+                breakdown. Tap <span className="text-slate-300">Analyze RegObs</span> for
+                an AI summary of nearby field observations, snow quality, and a
+                recommendation for where to find the best snow.
               </p>
             </div>
           </div>
@@ -162,11 +169,11 @@ export default function WelcomePage() {
           <div className="flex flex-wrap gap-x-5 gap-y-1.5 mb-6 sm:mb-8 text-[11px] text-slate-500 font-light">
             <span className="flex items-center gap-1.5">
               <span className="w-1 h-1 rounded-full bg-sky-500/50 inline-block" />
-              Search any place in Norway
+              75m terrain grid resolution
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-1 h-1 rounded-full bg-amber-500/50 inline-block" />
-              Live weather + RegObs field data
+              SeNorge + NVE + MET weather data
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-1 h-1 rounded-full bg-emerald-500/50 inline-block" />
